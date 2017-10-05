@@ -1,0 +1,8 @@
+.DS_Store
+*.egg-info
+*.pyc
+*.pt.py
+.tmp*
+.coverage
+.noseids
+*~
