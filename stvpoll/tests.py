@@ -68,8 +68,7 @@ class ScottishSTVTests(unittest.TestCase):
 
     @property
     def _cut(self):
-        # type: () -> STVPollBase
-        from stvpoll import ScottishSTV
+        from stvpoll.scottish import ScottishSTV
         return ScottishSTV
 
     def test_opa_example(self):
