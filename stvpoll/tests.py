@@ -42,27 +42,26 @@ class STVPollBaseTests(unittest.TestCase):
         from stvpoll import STVPollBase
         return STVPollBase
 
-    # TODO: Unbreak Robins code ;)
-    # def test_ballot_count(self):
-    #     obj = self._cut()
-    #     obj.add_ballot(['a', 'b'], 5)
-    #     obj.add_ballot(['a'], 3)
-    #     obj.add_ballot(['b'], 8)
-    #     self.assertEqual(obj.ballot_count, 16)
-    #
-    # def test_add_ballot(self):
-    #     obj = self._cut()
-    #     obj.add_ballot(['a', 'b'])
-    #     obj.add_ballot(['a', 'b'])
-    #     obj.add_ballot(['a', 'b'])
-    #     obj.add_ballot(['a'])
-    #     obj.add_ballot(['a'])
-    #     obj.add_ballot(['b'])
-    #     self.assertEqual(set(obj.ballots), set([('a',), ('b',), ('a', 'b')]))
-    #     self.assertEqual(obj.ballot_count, 6)
-    #
-    # def test_verify_ballot(self):
-    #     pass
+    def test_ballot_count(self):
+        obj = self._cut(candidates=('a', 'b'))
+        obj.add_ballot(['a', 'b'], 5)
+        obj.add_ballot(['a'], 3)
+        obj.add_ballot(['b'], 8)
+        self.assertEqual(obj.ballot_count, 16)
+
+    def test_add_ballot(self):
+        obj = self._cut(candidates=('a', 'b'))
+        obj.add_ballot(['a', 'b'])
+        obj.add_ballot(['a', 'b'])
+        obj.add_ballot(['a', 'b'])
+        obj.add_ballot(['a'])
+        obj.add_ballot(['a'])
+        obj.add_ballot(['b'])
+        self.assertEqual(set(obj.ballots), set([('a',), ('b',), ('a', 'b')]))
+        self.assertEqual(obj.ballot_count, 6)
+
+    def test_verify_ballot(self):
+        pass
 
 
 class ScottishSTVTests(unittest.TestCase):
