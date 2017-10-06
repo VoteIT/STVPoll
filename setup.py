@@ -9,7 +9,7 @@ with open(os.path.join(here, 'CHANGES.txt')) as f:
     CHANGES = f.read()
 
 requires = (
-
+      'typing',
 )
 
 tests_require = (
