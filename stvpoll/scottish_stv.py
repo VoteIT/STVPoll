@@ -18,7 +18,7 @@ class ScottishSTV(STVPollBase):
         if candidate.votes >= quota:
             self.select(candidate, method)
             transfer_quota = ScottishSTV.round((candidate.votes - quota) / candidate.votes)
-            self.result.exhausted += self.transfer_votes(transfer_quota=transfer_quota, candidate=candidate)
+            self.transfer_votes(candidate, transfer_quota=transfer_quota)
 
         elif self.seats_to_fill == len(self.still_running):
             self.select(candidate, ElectionRound.SELECTION_METHOD_NO_COMPETITION)
@@ -26,4 +26,4 @@ class ScottishSTV(STVPollBase):
         else:
             candidate, method = self.get_candidate(most_votes=False)
             self.select(candidate, method, Candidate.EXCLUDED)
-            self.result.exhausted += self.transfer_votes(candidate=candidate)
+            self.transfer_votes(candidate)

@@ -93,10 +93,11 @@ class ElectionRound:
 
     def __str__(self):
         # type: () -> str
-        return 'Round {}: {} {}{}'.format(
+        return 'Round {}: {} {} - {} votes{}'.format(
             self._id,
             self.status_display(),
             self.selected,
+            round(self.selected.votes),
             self.selection_method and ' ({})'.format(self.SELECTION_METHODS[self.selection_method]) or '')
 
 
@@ -216,34 +217,35 @@ class STVPollBase(object):
 
         return choice(candidates), ElectionRound.SELECTION_METHOD_RANDOM
 
-    def transfer_votes(self, transfer_quota=Decimal(1), candidate=None):
-        # type: (Decimal, Candidate) -> Decimal
-        exhaustion = Decimal(0)
-        if candidate:
-            # print('Transfering votes for {} at {} quota.'.format(candidate, transfer_quota))
-            for ballot in self.ballots:
-                transfered = transfer_vote = False
-                for bcandidate in ballot:
-                    if not transfer_vote and bcandidate.running:
-                        break
-                    if bcandidate == candidate:
-                        transfer_vote = True
-                        continue
-                    if transfer_vote and bcandidate.running:
-                        bcandidate.votes += self.ballots[ballot] * transfer_quota
-                        transfered = True
-                        break
-                if transfer_vote and not transfered:
-                    exhaustion += transfer_quota
-        else:
-            # print('Counting first hand votes')
-            for ballot in self.ballots:
-                for bcandidate in ballot:
-                    if bcandidate.running:
-                        bcandidate.votes += self.ballots[ballot] * transfer_quota
-                        break
+    def transfer_votes(self, candidate, transfer_quota=Decimal(1)):
+        # type: (Candidate, Decimal) -> None
+        for ballot in self.ballots:
+            ballot_quota = self.ballots[ballot] * transfer_quota
+            if not ballot:
+                self.result.exhausted += ballot_quota
+                continue
 
-        return exhaustion
+            transfered = transfer_vote = False
+            for bcandidate in ballot:
+                if not transfer_vote and bcandidate.running:
+                    break
+                if bcandidate == candidate:
+                    transfer_vote = True
+                    continue
+                if transfer_vote and bcandidate.running:
+                    bcandidate.votes += ballot_quota
+                    transfered = True
+                    break
+            if transfer_vote and not transfered:
+                self.result.exhausted += ballot_quota
+
+    def initial_votes(self):
+        for ballot in self.ballots:
+            try:
+                ballot[0].votes += self.ballots[ballot]
+            except IndexError:
+                pass
+
 
     @property
     def still_running(self):
@@ -272,7 +274,7 @@ class STVPollBase(object):
     def calculate(self):
         # type: () -> ElectionResult
         self.result = ElectionResult(self.seats, len(self.ballots))
-        self.transfer_votes()
+        self.initial_votes()
         quota = self.quota(self)
 
         while not self.result.complete:
