@@ -56,6 +56,29 @@ def _wikipedia_cpo_example_fixture(factory):
     return obj
 
 
+def _some_new_fixture(factory):
+    """
+    Example from https://en.wikipedia.org/wiki/CPO-STV
+    """
+    example_candidates = ('Andrea', 'Carter', 'Brad', 'Delilah', 'Scott', 'Johan', 'Batman', 'Robin')
+    example_ballots = (
+        (('Andrea', 'Batman', 'Robin'), 25),
+        (('Carter', 'Brad', 'Batman', 'Robin', 'Delilah'), 34),
+        (('Brad', 'Delilah'), 7),
+        (('Delilah', 'Brad'), 8),
+        (('Batman', 'Delilah', 'Robin', 'Brad'), 8),
+        (('Delilah', 'Johan', 'Brad', 'Batman'), 8),
+        (('Delilah', 'Batman', 'Brad'), 8),
+        (('Delilah', 'Brad', 'Robin'), 8),
+        (('Delilah', 'Scott'), 5),
+        (('Scott', 'Delilah', 'Robin'), 21),
+    )
+    obj = factory(seats=4, candidates=example_candidates, quota=hagenbach_bischof_quota)
+    for b in example_ballots:
+        obj.add_ballot(*b)
+    return obj
+
+
 class STVPollBaseTests(unittest.TestCase):
 
     @property
@@ -64,14 +87,14 @@ class STVPollBaseTests(unittest.TestCase):
         return STVPollBase
 
     def test_ballot_count(self):
-        obj = self._cut(candidates=('a', 'b'))
+        obj = self._cut(seats=0, candidates=('a', 'b'))
         obj.add_ballot(['a', 'b'], 5)
         obj.add_ballot(['a'], 3)
         obj.add_ballot(['b'], 8)
         self.assertEqual(obj.ballot_count, 16)
 
     def test_add_ballot(self):
-        obj = self._cut(candidates=('a', 'b'))
+        obj = self._cut(seats=0, candidates=('a', 'b'))
         obj.add_ballot(['a', 'b'])
         obj.add_ballot(['a', 'b'])
         obj.add_ballot(['a', 'b'])
@@ -98,24 +121,31 @@ class ScottishSTVTests(unittest.TestCase):
     def test_opa_example(self):
         obj = _opa_example_fixture(self._cut)
         result = obj.calculate()
-        print(map(str, result.rounds))
+#        print(map(str, result.rounds))
         self.assertEqual(result.elected_as_tuple(), self.opa_results)
 
     def test_wikipedia_example(self):
         obj = _wikipedia_example_fixture(self._cut)
         result = obj.calculate()
-        print(map(str, result.rounds))
+#        print(map(str, result.rounds))
         self.assertEqual(result.elected_as_tuple(), self.wiki_results)
 
     def test_wikipedia_cpo_example(self):
         obj = _wikipedia_cpo_example_fixture(self._cut)
         result = obj.calculate()
-        print(map(str, result.rounds))
+#        print(map(str, result.rounds))
         self.assertEqual(result.elected_as_tuple(), self.wiki_cpo_results)
+
+    def test_the_new_one(self):
+        obj = _some_new_fixture(self._cut)
+        result = obj.calculate()
+        print(result.poll.__class__.__name__)
+        print(result.elected)
+#        self.assertEqual(result.elected_as_tuple(), self.wiki_cpo_results)
 
 
 class COPSTVTests(ScottishSTVTests):
-    wiki_results = ('chocolate', 'strawberry', 'bonbon')
+    wiki_results = ('chocolate', 'orange', 'strawberry')
     wiki_cpo_results = ('Carter', 'Andrea', 'Delilah')
 
     @property
@@ -123,9 +153,6 @@ class COPSTVTests(ScottishSTVTests):
         from stvpoll.cpo_stv import CPO_STV
         return CPO_STV
 
-    def test_wikipedia_example(self):
-        # This currently gets a random 3:rd result, due to tiebreak rules
-        pass
 
 if __name__ == "__main__":
     unittest.main()

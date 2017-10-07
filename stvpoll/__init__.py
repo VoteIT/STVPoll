@@ -42,9 +42,9 @@ class Candidate:
         # type: (object) -> None
         self.obj = obj
 
-    def __str__(self):
+    def __repr__(self):
         # type: () -> str
-        return str(self.obj)
+        return '<Candidate: {}>'.format(str(self.obj))
 
     @property
     def running(self):
@@ -88,7 +88,7 @@ class ElectionRound:
         # type: (Candidate, List[Candidate], int, int) -> None
         self.selected = candidate
         self.status = status
-        self.votes = votes
+        self.votes = deepcopy(votes)
         self.selection_method = method
 
     def __str__(self):
@@ -104,13 +104,14 @@ class ElectionRound:
 class ElectionResult:
     exhausted = Decimal(0)
     runtime = .0
+    _complete = False
 
-    def __init__(self, seats, vote_count):
-        # type: (int, int) -> None
+    def __init__(self, poll):
+        # type: (STVPollBase) -> None
+        self.poll = poll
         self.rounds = []
         self.elected = []
-        self.seats = seats
-        self.vote_count = vote_count
+        self.seats = poll.seats
         self.start_time = time()
 
     def __str__(self):
@@ -120,6 +121,10 @@ class ElectionResult:
     def new_round(self):
         self.rounds.append(ElectionRound(
             _id=len(self.rounds)+1))
+
+    def finish(self):
+        self.rounds.pop()
+        self._complete = True
 
     @property
     def current_round(self):
@@ -138,20 +143,17 @@ class ElectionResult:
     def complete(self):
         # type: () -> bool
         complete = len(self.elected) == self.seats
-        if complete:
+        if complete or self._complete:
             self.runtime = time() - self.start_time
-        return complete
+            return True
 
     def elected_as_tuple(self):
         return tuple(map(lambda x: x.obj, self.elected))
 
 
 class STVPollBase(object):
-    quota = None
-    candidates = ()
-    seats = 0
 
-    def __init__(self, seats=0, candidates=(), quota=droop_quota):
+    def __init__(self, seats, candidates, quota=droop_quota):
         # type: (int, List, Callable) -> None
         self.candidates = map(Candidate, candidates)
         self.ballots = Counter()
@@ -192,9 +194,15 @@ class STVPollBase(object):
             if k not in self.candidates:
                 raise BallotException("%s is not in the list of candidates" % k)
 
+    # TODO Remove excludes, probably
     def get_candidate(self, most_votes=True, excludes=None):
         # type: (bool) -> (Candidate, int, List[Candidate])
-        sample = excludes and filter(lambda c: c not in excludes, self.still_running) or self.still_running
+        if excludes:
+            sample = filter(lambda c: c not in excludes, self.still_running)
+            if not sample:
+                raise CandidateDoesNotExist
+        else:
+            sample = self.still_running
         candidate = sorted(sample, key=lambda c: c.votes, reverse=most_votes)[0]
         ties = [c for c in sample if c.votes == candidate.votes]
         if len(ties) > 1:
@@ -273,7 +281,7 @@ class STVPollBase(object):
 
     def calculate(self):
         # type: () -> ElectionResult
-        self.result = ElectionResult(self.seats, len(self.ballots))
+        self.result = ElectionResult(self)
         self.initial_votes()
         quota = self.quota(self)
 
