@@ -12,12 +12,12 @@ class ScottishSTV(STVPollBase):
         # type: (Decimal) -> Decimal
         return value.quantize(Decimal('.00001'))
 
-    def calculate_round(self, quota):
+    def calculate_round(self):
         # type: () -> None
         candidate, method = self.get_candidate()
-        if candidate.votes >= quota:
+        if candidate.votes >= self.quota:
             self.select(candidate, method)
-            transfer_quota = ScottishSTV.round((candidate.votes - quota) / candidate.votes)
+            transfer_quota = ScottishSTV.round((candidate.votes - self.quota) / candidate.votes)
             self.transfer_votes(candidate, transfer_quota=transfer_quota)
 
         elif self.seats_to_fill == len(self.still_running):

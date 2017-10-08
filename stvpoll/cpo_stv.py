@@ -4,46 +4,40 @@ from decimal import Decimal
 from stvpoll import Candidate, ElectionRound, ElectionResult, CandidateDoesNotExist
 from stvpoll import STVPollBase
 from stvpoll import hagenbach_bischof_quota
+from typing import Iterable
 from typing import List
 
 
 class CPOComparisonPoll(STVPollBase):
 
     def __init__(self, seats, candidates, quota=hagenbach_bischof_quota, winners=(), compared=()):
-        super(CPOComparisonPoll, self).__init__(seats, candidates, quota)
-        self.result = ElectionResult(self)
-        self.winners = [self.get_existing_candidate(c.obj) for c in winners]
+        super(CPOComparisonPoll, self).__init__(seats, [c.obj for c in candidates], quota)
         self.compared = [self.get_existing_candidate(c.obj) for c in compared]
+        self.winners = [self.get_existing_candidate(c.obj) for c in winners]
         self.below_quota = False
 
-    def transfer_votes(self, candidate, transfer_quota=Decimal(1)):
-        super(CPOComparisonPoll, self).transfer_votes(candidate, transfer_quota)
-        quota = self.quota(self)
-        if candidate.votes > quota:
-            candidate.votes = quota
+    # def transfer_votes(self, candidate, transfer_quota=Decimal(1)):
+    #     super(CPOComparisonPoll, self).transfer_votes(candidate, transfer_quota)
+    #     if candidate.votes > self.quota:
+    #         candidate.votes = self.quota
 
-    def select_round(self, candidate, quota, status=Candidate.ELECTED):
-        # type: (Candidate, int, int) -> None
-        candidate = [c for c in self.candidates if c == candidate][0]
-        self.select(candidate, ElectionRound.SELECTION_METHOD_CPO, status)
-        transfer_quota = status == Candidate.ELECTED and (candidate.votes - quota) / candidate.votes or 1
-        self.transfer_votes(candidate, transfer_quota=transfer_quota)
+    # def select_round(self, candidate, status=Candidate.ELECTED):
+    #     # type: (Candidate, int) -> None
+    #     candidate = [c for c in self.candidates if c == candidate][0]
+    #     self.select(candidate, ElectionRound.SELECTION_METHOD_CPO, status)
+    #     transfer_quota = status == Candidate.ELECTED and (candidate.votes - self.quota) / candidate.votes or 1
+    #     self.transfer_votes(candidate, transfer_quota=transfer_quota)
 
-    def calculate_round(self, quota):
-        # type: (int) -> None
-        exclude = set(self.still_running).difference(self.winners)
-        if exclude:
-            self.select_round(exclude.pop(), quota, Candidate.EXCLUDED)
-        else:
-            try:
-                candidate, method = self.get_candidate(excludes=self.compared)
-            except CandidateDoesNotExist:
-                self.result.finish()
-            else:
-                if candidate.votes >= quota:
-                    self.select_round(candidate, quota)
-                else:
-                    self.result.finish()
+    def do_rounds(self):
+        # type: () -> None
+        for exclude in set(self.still_running).difference(self.winners):
+            self.select(exclude, ElectionRound.SELECTION_METHOD_DIRECT, Candidate.EXCLUDED)
+            self.transfer_votes(exclude)
+
+        for transfer in set(self.still_running).difference(self.compared):
+            self.select(transfer, ElectionRound.SELECTION_METHOD_DIRECT)
+            self.transfer_votes(transfer, transfer_quota=(Decimal(transfer.votes) - self.quota) / transfer.votes)
+            transfer.votes = self.quota
 
     @property
     def not_excluded(self):
@@ -56,11 +50,10 @@ class CPOComparisonPoll(STVPollBase):
 
 
 class CPOComparisonResult:
-    def __init__(self, poll, compared, candidate):
-        # type: (CPOComparisonPoll, set, Candidate) -> None
-        self.candidate = candidate
-        self.others = set(compared)
-        self.others.discard(candidate)
+    def __init__(self, poll, compared, candidates):
+        # type: (CPOComparisonPoll, set[Candidate], List[Candidate]) -> None
+        self.candidates = candidates
+        self.others = set(compared).difference(candidates)
         self.poll = poll
 
     def __cmp__(self, other):
@@ -69,7 +62,12 @@ class CPOComparisonResult:
 
     @property
     def total(self):
+        # type: () -> Decimal
         return self.poll.total_except(list(self.others))
+
+    def update_votes(self):
+        for candidate in self.candidates:
+            candidate.votes = [c for c in self.poll.candidates if c == candidate][0].votes
 
 
 class CPO_STV(STVPollBase):
@@ -78,7 +76,7 @@ class CPO_STV(STVPollBase):
         super(CPO_STV, self).__init__(seats, candidates, quota)
 
     def get_best_approval(self):
-        # type: (int) -> Candidate
+        # type: (int) -> Iterable[Candidate]
         from itertools import combinations
         leader = None
         possible_outcomes = list(combinations(self.still_running, self.seats_to_fill))
@@ -94,7 +92,7 @@ class CPO_STV(STVPollBase):
             winners.update(self.result.elected)
             comparison_poll = CPOComparisonPoll(
                 self.seats,
-                [c.obj for c in self.candidates],
+                self.candidates,
                 winners=winners,
                 compared=compared)
 
@@ -103,11 +101,11 @@ class CPO_STV(STVPollBase):
             comparison_poll.calculate()
 
             this_runner = []
-            for candidate in compared:
+            for candidates in combination:
                 this_runner.append(CPOComparisonResult(
                     comparison_poll,
                     compared,
-                    candidate))
+                    candidates))
 
             if leader:
                 if max(this_runner) > max(leader):
@@ -115,9 +113,9 @@ class CPO_STV(STVPollBase):
             else:
                 leader = this_runner
 
-        winner = max(leader)
-        winner.candidate.votes = [c for c in winner.poll.candidates if c == winner.candidate][0].votes
-        return winner.candidate
+        winning_combination = max(leader)
+        winning_combination.update_votes()
+        return winning_combination.candidates
 
 
     def resolve_tie(self, candidates, most_votes):
@@ -126,16 +124,13 @@ class CPO_STV(STVPollBase):
         # https://medium.com/freds-blog/explaining-the-condorcet-system-9b4f47aa4e60
         return super(CPO_STV, self).resolve_tie(candidates, most_votes)
 
-    def calculate_round(self, quota):
+    def do_rounds(self):
         # type: (int) -> None
-        candidate, method = self.get_candidate()
 
-        if candidate.votes >= quota or len(self.still_running) == self.seats_to_fill:
-            self.select(candidate, method)
+        self.select_multiple(
+            filter(lambda c: c.votes >= self.quota, self.candidates),
+            ElectionRound.SELECTION_METHOD_DIRECT)
 
-        # elif len(self.still_running) <= 2:
-        #     candidate, method = self.get_candidate(most_votes=False)
-        #     self.select(candidate, method, Candidate.EXCLUDED)
-
-        else:
-            self.select(self.get_best_approval(), ElectionRound.SELECTION_METHOD_CPO)
+        self.select_multiple(
+            self.get_best_approval(),
+            ElectionRound.SELECTION_METHOD_CPO)

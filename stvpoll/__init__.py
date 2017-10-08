@@ -5,6 +5,7 @@ from math import floor
 from random import choice
 from time import time
 from typing import Callable
+from typing import Iterable
 from typing import List
 
 
@@ -44,7 +45,7 @@ class Candidate:
 
     def __repr__(self):
         # type: () -> str
-        return '<Candidate: {}>'.format(str(self.obj))
+        return '<Candidate: {}: {} votes>'.format(str(self.obj), self.votes)
 
     @property
     def running(self):
@@ -93,11 +94,10 @@ class ElectionRound:
 
     def __str__(self):
         # type: () -> str
-        return 'Round {}: {} {} - {} votes{}'.format(
+        return 'Round {}: {} {} - {}'.format(
             self._id,
             self.status_display(),
             self.selected,
-            round(self.selected.votes),
             self.selection_method and ' ({})'.format(self.SELECTION_METHODS[self.selection_method]) or '')
 
 
@@ -123,7 +123,6 @@ class ElectionResult:
             _id=len(self.rounds)+1))
 
     def finish(self):
-        self.rounds.pop()
         self._complete = True
 
     @property
@@ -152,12 +151,13 @@ class ElectionResult:
 
 
 class STVPollBase(object):
+    _quota = None
 
     def __init__(self, seats, candidates, quota=droop_quota):
         # type: (int, List, Callable) -> None
         self.candidates = map(Candidate, candidates)
         self.ballots = Counter()
-        self.quota = quota
+        self._quota_function = quota
         self.seats = seats
         self.errors = []
 
@@ -167,6 +167,13 @@ class STVPollBase(object):
             if candidate.obj == obj:
                 return candidate
         raise CandidateDoesNotExist()
+
+    @property
+    def quota(self):
+        # type: () -> int
+        if not self._quota:
+            self._quota = self._quota_function(self)
+        return self._quota
 
     @property
     def ballot_count(self):
@@ -211,7 +218,7 @@ class STVPollBase(object):
 
     def resolve_tie(self, candidates, most_votes):
         # type: (List[Candidate], bool) -> (Candidate, int)
-        for round in self.result.rounds[:-1][::-1]:  # TODO Make the code below readable
+        for round in self.result.rounds[::-1]:  # TODO Make the code below readable
             round_votes = filter(lambda v: v in candidates, round.votes)
             sorted_round_votes = sorted(round_votes, key=lambda c: c.votes, reverse=most_votes)
             primary_candidate = sorted_round_votes[0]
@@ -247,6 +254,7 @@ class STVPollBase(object):
             if transfer_vote and not transfered:
                 self.result.exhausted += ballot_quota
 
+
     def initial_votes(self):
         for ballot in self.ballots:
             try:
@@ -277,19 +285,26 @@ class STVPollBase(object):
 
     def select(self, candidate, method, status=Candidate.ELECTED):
         # type: (Candidate, int, int) -> None
+        self.result.new_round()
         self.result.select(candidate, self.still_running, method, status)
+
+    def select_multiple(self, candidates, method, status=Candidate.ELECTED):
+        # type: (Iterable[Candidate], int, int) -> None
+        for candidate in sorted(candidates, key=lambda c: c.votes, reverse=True):
+            self.select(candidate, method, status)
 
     def calculate(self):
         # type: () -> ElectionResult
         self.result = ElectionResult(self)
         self.initial_votes()
-        quota = self.quota(self)
-
-        while not self.result.complete:
-            self.result.new_round()
-            self.calculate_round(quota)
+        self.do_rounds()
         return self.result
 
-    def calculate_round(self, quota):
+    def do_rounds(self):
+        # type: () -> None
+        while not self.result.complete:
+            self.calculate_round()
+
+    def calculate_round(self):
         # type: (int) -> None
         raise NotImplementedError()
