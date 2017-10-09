@@ -1,11 +1,14 @@
-from copy import deepcopy
-
+from collections import Counter
 from decimal import Decimal
-from stvpoll import Candidate, ElectionRound, ElectionResult, CandidateDoesNotExist
-from stvpoll import STVPollBase
-from stvpoll import hagenbach_bischof_quota
+
+from stvpoll.exceptions import STVException
 from typing import Iterable
 from typing import List
+
+from stvpoll import Candidate
+from stvpoll import ElectionRound
+from stvpoll import STVPollBase
+from stvpoll import hagenbach_bischof_quota
 
 
 class CPOComparisonPoll(STVPollBase):
@@ -50,24 +53,42 @@ class CPOComparisonPoll(STVPollBase):
 
 
 class CPOComparisonResult:
-    def __init__(self, poll, compared, candidates):
-        # type: (CPOComparisonPoll, set[Candidate], List[Candidate]) -> None
-        self.candidates = candidates
-        self.others = set(compared).difference(candidates)
+    def __init__(self, poll, compared):
+        # type: (CPOComparisonPoll, List[List[Candidate]]) -> None
         self.poll = poll
+        self.compared = compared
+        self.all = set(compared[0] + compared[1])
+        self.totals = (
+            (compared[0], self.total(compared[0])),
+            (compared[1], self.total(compared[1])),
+        )
 
-    def __cmp__(self, other):
-        # type: (CPOComparisonResult) -> bool
-        return self.total > other.total
+    def others(self, combination):
+        # type: (List[Candidate]) -> Iterable[Candidate]
+        return self.all.difference(combination)
+
+    def get_combination(self, winning):
+        # type: (bool) -> List[Candidate]
+        fn = winning and max or min
+        return fn(self.totals, key=lambda x: x[1])[0]
 
     @property
-    def total(self):
-        # type: () -> Decimal
-        return self.poll.total_except(list(self.others))
+    def winner(self):
+        # type: (bool) -> List[Candidate]
+        return self.get_combination(True)
 
-    def update_votes(self):
-        for candidate in self.candidates:
-            candidate.votes = [c for c in self.poll.candidates if c == candidate][0].votes
+    @property
+    def looser(self):
+        # type: (bool) -> List[Candidate]
+        return self.get_combination(False)
+
+    @property
+    def difference(self):
+        return self.total(self.get_combination(True)) - self.total(self.get_combination(False))
+
+    def total(self, combination):
+        # type: (List[Candidate]) -> Decimal
+        return self.poll.total_except(list(self.others(combination)))
 
 
 class CPO_STV(STVPollBase):
@@ -86,6 +107,8 @@ class CPO_STV(STVPollBase):
         #     map(str, self.still_running),
         #     map(str, self.result.elected),
         # ))
+        wins = Counter()
+        losses = Counter()
         for combination in combinations(possible_outcomes, 2):
             compared = set([c for sublist in combination for c in sublist])
             winners = set(compared)
@@ -100,22 +123,14 @@ class CPO_STV(STVPollBase):
                 comparison_poll.add_ballot([c.obj for c in ballot], self.ballots[ballot])
             comparison_poll.calculate()
 
-            this_runner = []
-            for candidates in combination:
-                this_runner.append(CPOComparisonResult(
-                    comparison_poll,
-                    compared,
-                    candidates))
+            result = CPOComparisonResult(
+                comparison_poll,
+                combination)
+            wins[result.winner] += 1
+            losses[result.looser] += 1
 
-            if leader:
-                if max(this_runner) > max(leader):
-                    leader = this_runner
-            else:
-                leader = this_runner
-
-        winning_combination = max(leader)
-        winning_combination.update_votes()
-        return winning_combination.candidates
+        assert wins.most_common()[0][0] not in losses, 'No-one won all their duels'
+        return wins.most_common()[0][0]
 
 
     def resolve_tie(self, candidates, most_votes):
@@ -128,7 +143,7 @@ class CPO_STV(STVPollBase):
         # type: (int) -> None
 
         self.select_multiple(
-            filter(lambda c: c.votes >= self.quota, self.candidates),
+            filter(lambda c: c.votes > self.quota, self.candidates),
             ElectionRound.SELECTION_METHOD_DIRECT)
 
         self.select_multiple(

@@ -8,13 +8,8 @@ from typing import Callable
 from typing import Iterable
 from typing import List
 
-
-class BallotException(Exception):
-    pass
-
-
-class CandidateDoesNotExist(BallotException):
-    pass
+from stvpoll.exceptions import BallotException
+from stvpoll.exceptions import CandidateDoesNotExist
 
 
 def hagenbach_bischof_quota(poll):
