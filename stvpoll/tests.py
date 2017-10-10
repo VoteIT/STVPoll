@@ -1,4 +1,5 @@
 import unittest
+from random import choice
 
 from stvpoll import hagenbach_bischof_quota
 
@@ -60,21 +61,11 @@ def _some_new_fixture(factory):
     """
     Example from https://en.wikipedia.org/wiki/CPO-STV
     """
-    example_candidates = ('Andrea', 'Carter', 'Brad', 'Delilah', 'Scott', 'Johan', 'Batman', 'Robin')
     example_candidates = ('Andrea', 'Batman', 'Robin')
     example_ballots = (
         (('Andrea', 'Batman', 'Robin'), 1),
         (('Robin', 'Andrea', 'Batman'), 1),
         (('Batman', 'Robin', 'Andrea'), 1),
-        # (('Carter', 'Brad', 'Batman', 'Robin', 'Delilah'), 34),
-        # (('Brad', 'Delilah'), 7),
-        # (('Delilah', 'Brad'), 8),
-        # (('Batman', 'Delilah', 'Robin', 'Brad'), 8),
-        # (('Delilah', 'Johan', 'Brad', 'Batman'), 8),
-        # (('Delilah', 'Batman', 'Brad'), 8),
-        # (('Delilah', 'Brad', 'Robin'), 8),
-        # (('Delilah', 'Scott'), 5),
-        # (('Scott', 'Delilah', 'Robin'), 21),
     )
     obj = factory(seats=2, candidates=example_candidates, quota=hagenbach_bischof_quota)
     for b in example_ballots:
@@ -114,7 +105,7 @@ class STVPollBaseTests(unittest.TestCase):
 class ScottishSTVTests(unittest.TestCase):
     opa_results = ('Alice', 'Bob', 'Chris')
     wiki_results = ('chocolate', 'orange', 'strawberry')
-    wiki_cpo_results = ('Carter', 'Andrea', 'Scott')
+    wiki_cpo_results = ('Carter', 'Scott', 'Andrea')
 
     @property
     def _cut(self):
@@ -142,13 +133,13 @@ class ScottishSTVTests(unittest.TestCase):
     def test_the_new_one(self):
         obj = _some_new_fixture(self._cut)
         result = obj.calculate()
+        print('')
         print(result.poll.__class__.__name__)
-        print(result.elected)
+        print(result.elected_as_tuple())
 #        self.assertEqual(result.elected_as_tuple(), self.wiki_cpo_results)
 
 
 class COPSTVTests(ScottishSTVTests):
-    wiki_results = ('chocolate', 'orange', 'strawberry')
     wiki_cpo_results = ('Carter', 'Andrea', 'Delilah')
 
     @property

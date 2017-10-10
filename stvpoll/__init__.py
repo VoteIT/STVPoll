@@ -8,7 +8,7 @@ from typing import Callable
 from typing import Iterable
 from typing import List
 
-from stvpoll.exceptions import BallotException
+from stvpoll.exceptions import BallotException, STVException
 from stvpoll.exceptions import CandidateDoesNotExist
 
 
@@ -87,9 +87,9 @@ class ElectionRound:
         self.votes = deepcopy(votes)
         self.selection_method = method
 
-    def __str__(self):
+    def __repr__(self):
         # type: () -> str
-        return 'Round {}: {} {} - {}'.format(
+        return '<ElectionRound {}: {} {}{}>'.format(
             self._id,
             self.status_display(),
             self.selected,
@@ -155,6 +155,8 @@ class STVPollBase(object):
         self._quota_function = quota
         self.seats = seats
         self.errors = []
+        if len(self.candidates) < self.seats:
+            raise STVException('Not enough candidates to fill seats')
 
     def get_existing_candidate(self, obj):
         # type: (object) -> Candidate

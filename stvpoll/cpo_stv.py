@@ -1,5 +1,6 @@
 from collections import Counter
 from decimal import Decimal
+from itertools import combinations
 
 from stvpoll.exceptions import STVException
 from typing import Iterable
@@ -69,8 +70,7 @@ class CPOComparisonResult:
 
     def get_combination(self, winning):
         # type: (bool) -> List[Candidate]
-        fn = winning and max or min
-        return fn(self.totals, key=lambda x: x[1])[0]
+        return sorted(self.totals, key=lambda x: x[1])[winning and 1 or 0][0]
 
     @property
     def winner(self):
@@ -98,17 +98,9 @@ class CPO_STV(STVPollBase):
 
     def get_best_approval(self):
         # type: (int) -> Iterable[Candidate]
-        from itertools import combinations
-        leader = None
+        duels = []
+
         possible_outcomes = list(combinations(self.still_running, self.seats_to_fill))
-        # print('Seats: {}\nPairups: {}\nCandidates: {}\nAlready elected: {}\n\n'.format(
-        #     self.seats_to_fill,
-        #     len(list(combinations(possible_outcomes, 2))),
-        #     map(str, self.still_running),
-        #     map(str, self.result.elected),
-        # ))
-        wins = Counter()
-        losses = Counter()
         for combination in combinations(possible_outcomes, 2):
             compared = set([c for sublist in combination for c in sublist])
             winners = set(compared)
@@ -121,26 +113,59 @@ class CPO_STV(STVPollBase):
 
             for ballot in self.ballots:
                 comparison_poll.add_ballot([c.obj for c in ballot], self.ballots[ballot])
+
             comparison_poll.calculate()
-
-            result = CPOComparisonResult(
+            duels.append(CPOComparisonResult(
                 comparison_poll,
-                combination)
-            wins[result.winner] += 1
-            losses[result.looser] += 1
+                combination))
 
-        assert wins.most_common()[0][0] not in losses, 'No-one won all their duels'
-        return wins.most_common()[0][0]
+        # Return either a clear winner (no ties), or resolved using Ranked Pairs
+        return self.get_duels_winner(duels) or self.resolve_tie_ranked_pairs(duels)
 
+    def get_duels_winner(self, duels):
+        wins = Counter()
+        losses = Counter()
+        for duel in duels:
+            wins[duel.winner] += 1
+            losses[duel.looser] += 1
+        winner = wins.most_common()[0][0]
+        # If there is a clear winner (won all duels), return that combination.
+        if winner not in losses:
+            return winner
 
-    def resolve_tie(self, candidates, most_votes):
-        # TODO Research and implement tiebreak methods
-        # https://medium.com/freds-blog/explaining-cpo-stv-382444413292
+    def resolve_tie_ranked_pairs(self, duels):
+        # type: (List[CPOComparisonResult]) -> List[Candidate]
+        # TODO Implement random for extreme cases? (Now decided by ???)
         # https://medium.com/freds-blog/explaining-the-condorcet-system-9b4f47aa4e60
-        return super(CPO_STV, self).resolve_tie(candidates, most_votes)
+        class TracebackFound(STVException):
+            pass
+
+        noncircular_duels = []
+        def traceback(duel, _trace=None):
+            # type: (CPOComparisonResult, CPOComparisonResult) -> None
+            for trace in filter(lambda d: d.winner == (_trace and _trace.looser or duel.looser), noncircular_duels):
+                if duel.winner == trace.looser:
+                    raise TracebackFound()
+                traceback(duel, trace)
+
+        for duel in sorted(duels, key=lambda d: d.difference, reverse=True):
+            try:
+                traceback(duel)
+                noncircular_duels.append(duel)
+            except TracebackFound:
+                pass
+
+        return self.get_duels_winner(noncircular_duels)
+        # return super(CPO_STV, self).resolve_tie(candidates, most_votes)
 
     def do_rounds(self):
         # type: (int) -> None
+
+        if len(self.candidates) == self.seats:
+            self.select_multiple(
+                self.candidates,
+                ElectionRound.SELECTION_METHOD_DIRECT)
+            return
 
         self.select_multiple(
             filter(lambda c: c.votes > self.quota, self.candidates),

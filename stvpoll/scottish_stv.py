@@ -15,7 +15,7 @@ class ScottishSTV(STVPollBase):
     def calculate_round(self):
         # type: () -> None
         candidate, method = self.get_candidate()
-        if candidate.votes >= self.quota:
+        if candidate.votes > self.quota:
             self.select(candidate, method)
             transfer_quota = ScottishSTV.round((candidate.votes - self.quota) / candidate.votes)
             self.transfer_votes(candidate, transfer_quota=transfer_quota)
