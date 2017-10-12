@@ -61,11 +61,15 @@ def _CPO_extreme_tie_fixture(factory):
     """
     Example from https://en.wikipedia.org/wiki/CPO-STV
     """
-    example_candidates = ('Andrea', 'Batman', 'Robin')
+    example_candidates = ('Andrea', 'Batman', 'Robin', 'Gorm')
     example_ballots = (
         (('Andrea', 'Batman', 'Robin'), 1),
         (('Robin', 'Andrea', 'Batman'), 1),
         (('Batman', 'Robin', 'Andrea'), 1),
+        # (('Andrea'), 1),
+        # (('Robin'), 1),
+        # (('Batman'), 1),
+        (('Gorm',), 2),
     )
     obj = factory(seats=2, candidates=example_candidates, quota=hagenbach_bischof_quota)
     for b in example_ballots:
@@ -130,12 +134,13 @@ class ScottishSTVTests(unittest.TestCase):
 #        print(map(str, result.rounds))
         self.assertEqual(result.elected_as_tuple(), self.wiki_cpo_results)
 
-    # def test_cpo_tie(self):
-    #     obj = _CPO_extreme_tie_fixture(self._cut)
-    #     result = obj.calculate()
-    #     print('')
-    #     print(result.poll.__class__.__name__)
-    #     print(result.elected_as_tuple())
+    def test_cpo_tie(self):
+        obj = _CPO_extreme_tie_fixture(self._cut)
+        result = obj.calculate()
+        print('')
+        print(result.poll.__class__.__name__)
+        print(result.elected_as_tuple())
+        print('Complete: {}'.format(result.complete))
 #        self.assertEqual(result.elected_as_tuple(), self.wiki_cpo_results)
 
 

@@ -136,10 +136,10 @@ class ElectionResult:
     @property
     def complete(self):
         # type: () -> bool
-        complete = len(self.elected) == self.seats
-        if complete or self._complete:
+        if len(self.elected) == self.seats or self._complete:
             self.runtime = time() - self.start_time
             return True
+        return False
 
     def elected_as_tuple(self):
         return tuple(map(lambda x: x.obj, self.elected))

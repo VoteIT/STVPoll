@@ -66,6 +66,7 @@ class CPOComparisonResult:
         ), key=lambda c: c[1])
         self.looser, self.winner = [c[0] for c in self.totals]
         self.difference = self.totals[1][1] - self.totals[0][1]
+        self.tied = self.difference == 0
 
     def others(self, combination):
         # type: (List[Candidate]) -> Iterable[Candidate]
@@ -112,15 +113,23 @@ class CPO_STV(STVPollBase):
         return self.get_duels_winner(duels) or self.resolve_tie_ranked_pairs(duels)
 
     def get_duels_winner(self, duels):
+        # type: (List[CPOComparisonResult]) -> List[Candidate]
         wins = Counter()
         losses = Counter()
         for duel in duels:
-            wins[duel.winner] += 1
             losses[duel.looser] += 1
-        winner = wins.most_common()[0][0]
-        # If there is a clear winner (won all duels), return that combination.
-        if winner not in losses:
-            return winner
+            if duel.tied:
+                losses[duel.winner] += 1
+            else:
+                wins[duel.winner] += 1
+
+        # Make sure it's not all ties
+        if wins:
+            winner = wins.most_common()[0][0]
+            # If there is a clear winner (won all duels), return that combination.
+            if winner not in losses:
+                return winner
+        return []
 
     def resolve_tie_ranked_pairs(self, duels):
         # type: (List[CPOComparisonResult]) -> List[Candidate]
@@ -128,6 +137,8 @@ class CPO_STV(STVPollBase):
         class TracebackFound(STVException):
             pass
 
+        # Can't declare winners if duel was tied.
+        duels = filter(lambda d: not d.tied, duels)
         noncircular_duels = []
 
         def traceback(duel, _trace=None):
@@ -138,6 +149,9 @@ class CPO_STV(STVPollBase):
                 traceback(duel, trace)
 
         for duel in sorted(duels, key=lambda d: d.difference, reverse=True):
+            # Do not decide between duels of same difference
+            if len(filter(lambda d: d.difference == duel.difference, duels)) > 1:
+                continue
             try:
                 traceback(duel)
                 noncircular_duels.append(duel)
