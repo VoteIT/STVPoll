@@ -57,7 +57,7 @@ def _wikipedia_cpo_example_fixture(factory):
     return obj
 
 
-def _some_new_fixture(factory):
+def _CPO_extreme_tie_fixture(factory):
     """
     Example from https://en.wikipedia.org/wiki/CPO-STV
     """
@@ -130,12 +130,12 @@ class ScottishSTVTests(unittest.TestCase):
 #        print(map(str, result.rounds))
         self.assertEqual(result.elected_as_tuple(), self.wiki_cpo_results)
 
-    def test_the_new_one(self):
-        obj = _some_new_fixture(self._cut)
-        result = obj.calculate()
-        print('')
-        print(result.poll.__class__.__name__)
-        print(result.elected_as_tuple())
+    # def test_cpo_tie(self):
+    #     obj = _CPO_extreme_tie_fixture(self._cut)
+    #     result = obj.calculate()
+    #     print('')
+    #     print(result.poll.__class__.__name__)
+    #     print(result.elected_as_tuple())
 #        self.assertEqual(result.elected_as_tuple(), self.wiki_cpo_results)
 
 

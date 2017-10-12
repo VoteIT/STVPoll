@@ -59,10 +59,13 @@ class CPOComparisonResult:
         self.poll = poll
         self.compared = compared
         self.all = set(compared[0] + compared[1])
-        self.totals = (
+        # TODO Implement random for extreme cases? (Now decided by position in list below)
+        self.totals = sorted((
             (compared[0], self.total(compared[0])),
             (compared[1], self.total(compared[1])),
-        )
+        ), key=lambda c: c[1])
+        self.looser, self.winner = [c[0] for c in self.totals]
+        self.difference = self.totals[1][1] - self.totals[0][1]
 
     def others(self, combination):
         # type: (List[Candidate]) -> Iterable[Candidate]
@@ -71,20 +74,6 @@ class CPOComparisonResult:
     def get_combination(self, winning):
         # type: (bool) -> List[Candidate]
         return sorted(self.totals, key=lambda x: x[1])[winning and 1 or 0][0]
-
-    @property
-    def winner(self):
-        # type: (bool) -> List[Candidate]
-        return self.get_combination(True)
-
-    @property
-    def looser(self):
-        # type: (bool) -> List[Candidate]
-        return self.get_combination(False)
-
-    @property
-    def difference(self):
-        return self.total(self.get_combination(True)) - self.total(self.get_combination(False))
 
     def total(self, combination):
         # type: (List[Candidate]) -> Decimal
@@ -135,12 +124,12 @@ class CPO_STV(STVPollBase):
 
     def resolve_tie_ranked_pairs(self, duels):
         # type: (List[CPOComparisonResult]) -> List[Candidate]
-        # TODO Implement random for extreme cases? (Now decided by ???)
         # https://medium.com/freds-blog/explaining-the-condorcet-system-9b4f47aa4e60
         class TracebackFound(STVException):
             pass
 
         noncircular_duels = []
+
         def traceback(duel, _trace=None):
             # type: (CPOComparisonResult, CPOComparisonResult) -> None
             for trace in filter(lambda d: d.winner == (_trace and _trace.looser or duel.looser), noncircular_duels):
@@ -156,7 +145,6 @@ class CPO_STV(STVPollBase):
                 pass
 
         return self.get_duels_winner(noncircular_duels)
-        # return super(CPO_STV, self).resolve_tie(candidates, most_votes)
 
     def do_rounds(self):
         # type: (int) -> None
