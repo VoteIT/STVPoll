@@ -95,6 +95,15 @@ class ElectionRound:
             self.selected,
             self.selection_method and ' ({})'.format(self.SELECTION_METHODS[self.selection_method]) or '')
 
+    def as_dict(self):
+        # type: () -> dict
+        return {
+            'status': self.status_display(),
+            'selected': self.selected.obj,
+            'method': self.SELECTION_METHODS[self.selection_method],
+            'vote_count': tuple([{c.obj: c.votes} for c in self.votes]),
+        }
+
 
 class ElectionResult:
     exhausted = Decimal(0)
@@ -142,7 +151,16 @@ class ElectionResult:
         return False
 
     def elected_as_tuple(self):
+        # type: () -> tuple
         return tuple(map(lambda x: x.obj, self.elected))
+
+    def as_dict(self):
+        # type: () -> dict
+        return {
+            'elected': self.elected_as_tuple(),
+            'complete': self.complete,
+            'rounds': tuple([r.as_dict() for r in self.rounds]),
+        }
 
 
 class STVPollBase(object):
@@ -292,6 +310,8 @@ class STVPollBase(object):
 
     def calculate(self):
         # type: () -> ElectionResult
+        if not self.ballots:
+            raise STVException('No ballots registered.')
         self.result = ElectionResult(self)
         self.initial_votes()
         self.do_rounds()
