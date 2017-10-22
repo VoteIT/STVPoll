@@ -1,11 +1,14 @@
 class STVException(Exception):
     pass
 
-class ResolveTieError(STVException):
+
+class IncompleteResult(STVException):
     pass
+
 
 class BallotException(STVException):
     pass
+
 
 class CandidateDoesNotExist(BallotException):
     pass

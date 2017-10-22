@@ -1,8 +1,11 @@
-from collections import Counter
-from decimal import Decimal
-from itertools import combinations
+from __future__ import unicode_literals
 
-from stvpoll.exceptions import STVException
+from decimal import Decimal
+from random import choice
+from itertools import combinations
+from math import factorial
+
+from stvpoll.exceptions import STVException, IncompleteResult
 from typing import Iterable
 from typing import List
 
@@ -83,14 +86,23 @@ class CPOComparisonResult:
 
 class CPO_STV(STVPollBase):
 
-    def __init__(self, seats, candidates, quota=hagenbach_bischof_quota):
-        super(CPO_STV, self).__init__(seats, candidates, quota)
+    def __init__(self, quota=hagenbach_bischof_quota, *args, **kwargs):
+        super(CPO_STV, self).__init__(*args, quota=quota, **kwargs)
+
+    @staticmethod
+    def possible_combinations_pairs(number, subset):
+        # type: (int, int) -> (int, int)
+        def nCr(n, r):
+            return factorial(n) / factorial(r) / factorial(n - r)
+        combinations = nCr(number, subset)
+        return combinations, nCr(combinations, 2)
 
     def get_best_approval(self):
         # type: (int) -> Iterable[Candidate]
         duels = []
 
         possible_outcomes = list(combinations(self.still_running, self.seats_to_fill))
+        test = list(combinations(possible_outcomes, 2))
         for combination in combinations(possible_outcomes, 2):
             compared = set([c for sublist in combination for c in sublist])
             winners = set(compared)
@@ -114,21 +126,23 @@ class CPO_STV(STVPollBase):
 
     def get_duels_winner(self, duels):
         # type: (List[CPOComparisonResult]) -> List[Candidate]
-        wins = Counter()
-        losses = Counter()
+        wins = set()
+        losses = set()
         for duel in duels:
-            losses[duel.looser] += 1
+            losses.add(duel.looser)
             if duel.tied:
-                losses[duel.winner] += 1
+                losses.add(duel.winner)
             else:
-                wins[duel.winner] += 1
+                wins.add(duel.winner)
 
-        # Make sure it's not all ties
-        if wins:
-            winner = wins.most_common()[0][0]
+        undefeated = wins - losses
+        if len(undefeated) == 1:
             # If there is a clear winner (won all duels), return that combination.
-            if winner not in losses:
-                return winner
+            return undefeated.pop()
+        elif len(undefeated) > 1:
+            # If there are more than one choice and random is allowed. (Extreme case)
+            return self.choice(list(undefeated))
+        # No clear winner and no random
         return []
 
     def resolve_tie_ranked_pairs(self, duels):
@@ -148,15 +162,33 @@ class CPO_STV(STVPollBase):
                     raise TracebackFound()
                 traceback(duel, trace)
 
-        for duel in sorted(duels, key=lambda d: d.difference, reverse=True):
-            # Do not decide between duels of same difference
-            if len(filter(lambda d: d.difference == duel.difference, duels)) > 1:
-                continue
+        sorted_duels = sorted(duels, key=lambda d: d.difference, reverse=True)
+        while len(sorted_duels):
+            duel = sorted_duels[0]
+
+            # Check if there are equal difference duels
+            # Need to make sure these do not cause tiebreaks depending on order
+            equals = filter(lambda d: d.difference == duel.difference, sorted_duels)
+            if len(equals) > 1:
+                saved_list = noncircular_duels[:]
+                try:
+                    for eduel in equals:
+                        traceback(eduel)
+                        noncircular_duels.append(eduel)
+                except TracebackFound:
+                    if self.random_in_tiebreaks:
+                        self.result.randomized = True
+                        duel = choice(equals)
+                    else:
+                        raise IncompleteResult()
+                noncircular_duels = saved_list
+
             try:
                 traceback(duel)
                 noncircular_duels.append(duel)
             except TracebackFound:
                 pass
+            sorted_duels.remove(duel)
 
         return self.get_duels_winner(noncircular_duels)
 

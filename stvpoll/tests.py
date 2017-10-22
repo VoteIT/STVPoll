@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import unittest
 from random import choice
 
@@ -51,7 +53,7 @@ def _wikipedia_cpo_example_fixture(factory):
         (('Delilah', 'Scott'), 5),
         (('Scott', 'Delilah'), 21),
     )
-    obj = factory(seats=3, candidates=example_candidates, quota=hagenbach_bischof_quota)
+    obj = factory(seats=3, candidates=example_candidates)
     for b in example_ballots:
         obj.add_ballot(*b)
     return obj
@@ -71,9 +73,21 @@ def _CPO_extreme_tie_fixture(factory):
         # (('Batman'), 1),
         (('Gorm',), 2),
     )
-    obj = factory(seats=2, candidates=example_candidates, quota=hagenbach_bischof_quota)
+    obj = factory(seats=2, candidates=example_candidates)
     for b in example_ballots:
         obj.add_ballot(*b)
+    return obj
+
+
+def _big_fixture(factory):
+    import json
+    from codecs import open
+    with open('stvpoll/70 in 35.json') as infile:
+        votedata = json.load(infile)
+    # obj = factory(seats=votedata['seats'], candidates=votedata['candidates'])
+    obj = factory(seats=5, candidates=votedata['candidates'][:20])
+    for b in votedata['ballots']:
+        obj.add_ballot(b, 1)
     return obj
 
 
@@ -121,27 +135,32 @@ class ScottishSTVTests(unittest.TestCase):
         result = obj.calculate()
 #        print(map(str, result.rounds))
         self.assertEqual(result.elected_as_tuple(), self.opa_results)
+        self.assertEqual(result.as_dict()['randomized'], False)
 
     def test_wikipedia_example(self):
         obj = _wikipedia_example_fixture(self._cut)
         result = obj.calculate()
 #        print(map(str, result.rounds))
         self.assertEqual(result.elected_as_tuple(), self.wiki_results)
+        self.assertEqual(result.as_dict()['randomized'], False)
 
     def test_wikipedia_cpo_example(self):
         obj = _wikipedia_cpo_example_fixture(self._cut)
         result = obj.calculate()
 #        print(map(str, result.rounds))
         self.assertEqual(result.elected_as_tuple(), self.wiki_cpo_results)
+        self.assertEqual(result.as_dict()['randomized'], False)
 
     def test_cpo_tie(self):
         obj = _CPO_extreme_tie_fixture(self._cut)
         result = obj.calculate()
-        print('')
-        print(result.poll.__class__.__name__)
-        print(result.elected_as_tuple())
-        print('Complete: {}'.format(result.complete))
-#        self.assertEqual(result.elected_as_tuple(), self.wiki_cpo_results)
+        self.assertEqual(result.as_dict()['randomized'], True)
+        self.assertEqual(result.as_dict()['complete'], True)
+
+    # def test_big(self):
+    #     obj = _big_fixture(self._cut)
+    #     result = obj.calculate()
+    #     print('Big runtime ({}): {} seconds'.format(obj.__class__.__name__, result.runtime))
 
 
 class COPSTVTests(ScottishSTVTests):

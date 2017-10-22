@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 from collections import Counter
 from copy import deepcopy
 from decimal import Decimal
@@ -8,7 +10,7 @@ from typing import Callable
 from typing import Iterable
 from typing import List
 
-from stvpoll.exceptions import BallotException, STVException
+from stvpoll.exceptions import BallotException, STVException, IncompleteResult
 from stvpoll.exceptions import CandidateDoesNotExist
 
 
@@ -109,6 +111,7 @@ class ElectionResult:
     exhausted = Decimal(0)
     runtime = .0
     _complete = False
+    randomized = False
 
     def __init__(self, poll):
         # type: (STVPollBase) -> None
@@ -160,19 +163,21 @@ class ElectionResult:
             'elected': self.elected_as_tuple(),
             'complete': self.complete,
             'rounds': tuple([r.as_dict() for r in self.rounds]),
+            'randomized': self.randomized,
         }
 
 
 class STVPollBase(object):
     _quota = None
 
-    def __init__(self, seats, candidates, quota=droop_quota):
-        # type: (int, List, Callable) -> None
+    def __init__(self, seats, candidates, quota=droop_quota, random_in_tiebreaks=True):
+        # type: (int, List, Callable, bool) -> None
         self.candidates = map(Candidate, candidates)
         self.ballots = Counter()
         self._quota_function = quota
         self.seats = seats
         self.errors = []
+        self.random_in_tiebreaks = random_in_tiebreaks
         if len(self.candidates) < self.seats:
             raise STVException('Not enough candidates to fill seats')
 
@@ -231,6 +236,12 @@ class STVPollBase(object):
             return self.resolve_tie(ties, most_votes)
         return candidate, ElectionRound.SELECTION_METHOD_DIRECT
 
+    def choice(self, candidates):
+        if self.random_in_tiebreaks:
+            self.result.randomized = True
+            return choice(candidates)
+        raise IncompleteResult('Unresolved tiebreak (random disallowed)')
+
     def resolve_tie(self, candidates, most_votes):
         # type: (List[Candidate], bool) -> (Candidate, int)
         for round in self.result.rounds[::-1]:  # TODO Make the code below readable
@@ -245,7 +256,7 @@ class STVPollBase(object):
 
             candidates = [c for c in candidates if c in round_candidates]
 
-        return choice(candidates), ElectionRound.SELECTION_METHOD_RANDOM
+        return self.choice(candidates), ElectionRound.SELECTION_METHOD_RANDOM
 
     def transfer_votes(self, candidate, transfer_quota=Decimal(1)):
         # type: (Candidate, Decimal) -> None
@@ -314,7 +325,10 @@ class STVPollBase(object):
             raise STVException('No ballots registered.')
         self.result = ElectionResult(self)
         self.initial_votes()
-        self.do_rounds()
+        try:
+            self.do_rounds()
+        except IncompleteResult:
+            pass
         return self.result
 
     def do_rounds(self):
