@@ -23,18 +23,6 @@ class CPOComparisonPoll(STVPollBase):
         self.winners = [self.get_existing_candidate(c.obj) for c in winners]
         self.below_quota = False
 
-    # def transfer_votes(self, candidate, transfer_quota=Decimal(1)):
-    #     super(CPOComparisonPoll, self).transfer_votes(candidate, transfer_quota)
-    #     if candidate.votes > self.quota:
-    #         candidate.votes = self.quota
-
-    # def select_round(self, candidate, status=Candidate.ELECTED):
-    #     # type: (Candidate, int) -> None
-    #     candidate = [c for c in self.candidates if c == candidate][0]
-    #     self.select(candidate, ElectionRound.SELECTION_METHOD_CPO, status)
-    #     transfer_quota = status == Candidate.ELECTED and (candidate.votes - self.quota) / candidate.votes or 1
-    #     self.transfer_votes(candidate, transfer_quota=transfer_quota)
-
     def do_rounds(self):
         # type: () -> None
         for exclude in set(self.still_running).difference(self.winners):
@@ -62,12 +50,12 @@ class CPOComparisonResult:
         self.poll = poll
         self.compared = compared
         self.all = set(compared[0] + compared[1])
-        # TODO Implement random for extreme cases? (Now decided by position in list below)
         self.totals = sorted((
             (compared[0], self.total(compared[0])),
             (compared[1], self.total(compared[1])),
         ), key=lambda c: c[1])
-        self.looser, self.winner = [c[0] for c in self.totals]
+        # May be unclear here, but winner or looser does not matter if tied
+        self.loser, self.winner = [c[0] for c in self.totals]
         self.difference = self.totals[1][1] - self.totals[0][1]
         self.tied = self.difference == 0
 
@@ -102,7 +90,6 @@ class CPO_STV(STVPollBase):
         duels = []
 
         possible_outcomes = list(combinations(self.still_running, self.seats_to_fill))
-        test = list(combinations(possible_outcomes, 2))
         for combination in combinations(possible_outcomes, 2):
             compared = set([c for sublist in combination for c in sublist])
             winners = set(compared)
@@ -129,7 +116,7 @@ class CPO_STV(STVPollBase):
         wins = set()
         losses = set()
         for duel in duels:
-            losses.add(duel.looser)
+            losses.add(duel.loser)
             if duel.tied:
                 losses.add(duel.winner)
             else:
@@ -157,8 +144,8 @@ class CPO_STV(STVPollBase):
 
         def traceback(duel, _trace=None):
             # type: (CPOComparisonResult, CPOComparisonResult) -> None
-            for trace in filter(lambda d: d.winner == (_trace and _trace.looser or duel.looser), noncircular_duels):
-                if duel.winner == trace.looser:
+            for trace in filter(lambda d: d.winner == (_trace and _trace.loser or duel.loser), noncircular_duels):
+                if duel.winner == trace.loser:
                     raise TracebackFound()
                 traceback(duel, trace)
 

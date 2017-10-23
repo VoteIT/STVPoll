@@ -41,7 +41,7 @@ class Candidate:
         self.obj = obj
 
     def __repr__(self):
-        # type: () -> str
+        # type: () -> basestring
         return '<Candidate: {}: {} votes>'.format(str(self.obj), self.votes)
 
     @property
@@ -79,7 +79,7 @@ class ElectionRound:
         self._id = _id
 
     def status_display(self):
-        # type: () -> str
+        # type: () -> basestring
         return self.status == Candidate.ELECTED and 'Elected' or 'Excluded'
 
     def select(self, candidate, votes, method, status):
@@ -90,7 +90,7 @@ class ElectionRound:
         self.selection_method = method
 
     def __repr__(self):
-        # type: () -> str
+        # type: () -> basestring
         return '<ElectionRound {}: {} {}{}>'.format(
             self._id,
             self.status_display(),
@@ -122,7 +122,7 @@ class ElectionResult:
         self.start_time = time()
 
     def __str__(self):
-        # type: () -> str
+        # type: () -> basestring
         return '<ElectionResult in {} round(s): {}>'.format(len(self.rounds),  ', '.join(map(str, self.elected)))
 
     def new_round(self):
@@ -160,10 +160,12 @@ class ElectionResult:
     def as_dict(self):
         # type: () -> dict
         return {
-            'elected': self.elected_as_tuple(),
+            'winners': self.elected_as_tuple(),
+            'candidates': tuple([c.obj for c in self.poll.candidates]),
             'complete': self.complete,
             'rounds': tuple([r.as_dict() for r in self.rounds]),
             'randomized': self.randomized,
+            'quota': self.poll.quota,
         }
 
 
@@ -178,6 +180,7 @@ class STVPollBase(object):
         self.seats = seats
         self.errors = []
         self.random_in_tiebreaks = random_in_tiebreaks
+        self.result = ElectionResult(self)
         if len(self.candidates) < self.seats:
             raise STVException('Not enough candidates to fill seats')
 
@@ -280,14 +283,12 @@ class STVPollBase(object):
             if transfer_vote and not transfered:
                 self.result.exhausted += ballot_quota
 
-
     def initial_votes(self):
         for ballot in self.ballots:
             try:
                 ballot[0].votes += self.ballots[ballot]
             except IndexError:
                 pass
-
 
     @property
     def still_running(self):
@@ -323,7 +324,6 @@ class STVPollBase(object):
         # type: () -> ElectionResult
         if not self.ballots:
             raise STVException('No ballots registered.')
-        self.result = ElectionResult(self)
         self.initial_votes()
         try:
             self.do_rounds()
