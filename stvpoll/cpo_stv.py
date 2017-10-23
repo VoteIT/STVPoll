@@ -78,12 +78,9 @@ class CPO_STV(STVPollBase):
         super(CPO_STV, self).__init__(*args, quota=quota, **kwargs)
 
     @staticmethod
-    def possible_combinations_pairs(number, subset):
-        # type: (int, int) -> (int, int)
-        def nCr(n, r):
-            return factorial(n) / factorial(r) / factorial(n - r)
-        combinations = nCr(number, subset)
-        return combinations, nCr(combinations, 2)
+    def possible_combinations(total, limit):
+        # type: (int, int) -> int
+        return factorial(total) / factorial(limit) / factorial(total - limit)
 
     def get_best_approval(self):
         # type: (int) -> Iterable[Candidate]
