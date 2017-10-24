@@ -42,7 +42,7 @@ class Candidate:
 
     def __repr__(self):
         # type: () -> basestring
-        return '<Candidate: {}: {} votes>'.format(str(self.obj), self.votes)
+        return '<Candidate: {}>'.format(str(self.obj))
 
     @property
     def running(self):
@@ -110,7 +110,6 @@ class ElectionRound:
 class ElectionResult:
     exhausted = Decimal(0)
     runtime = .0
-    _complete = False
     randomized = False
 
     def __init__(self, poll):
@@ -130,7 +129,7 @@ class ElectionResult:
             _id=len(self.rounds)+1))
 
     def finish(self):
-        self._complete = True
+        self.runtime = time() - self.start_time
 
     @property
     def current_round(self):
@@ -148,10 +147,7 @@ class ElectionResult:
     @property
     def complete(self):
         # type: () -> bool
-        if len(self.elected) == self.seats or self._complete:
-            self.runtime = time() - self.start_time
-            return True
-        return False
+        return len(self.elected) == self.seats
 
     def elected_as_tuple(self):
         # type: () -> tuple
@@ -329,6 +325,7 @@ class STVPollBase(object):
             self.do_rounds()
         except IncompleteResult:
             pass
+        self.result.finish()
         return self.result
 
     def do_rounds(self):

@@ -79,13 +79,13 @@ def _CPO_extreme_tie_fixture(factory):
     return obj
 
 
-def _big_fixture(factory):
+def _big_fixture(factory, candidates, seats):
     import json
     from codecs import open
     with open('stvpoll/70 in 35.json') as infile:
         votedata = json.load(infile)
     # obj = factory(seats=votedata['seats'], candidates=votedata['candidates'])
-    obj = factory(seats=5, candidates=votedata['candidates'][:20])
+    obj = factory(candidates=votedata['candidates'][:candidates], seats=seats)
     for b in votedata['ballots']:
         obj.add_ballot(b, 1)
     return obj
@@ -151,16 +151,20 @@ class ScottishSTVTests(unittest.TestCase):
         self.assertEqual(result.elected_as_tuple(), self.wiki_cpo_results)
         self.assertEqual(result.as_dict()['randomized'], False)
 
-    def test_cpo_tie(self):
+    def test_tiebreak_randomized(self):
         obj = _CPO_extreme_tie_fixture(self._cut)
         result = obj.calculate()
         self.assertEqual(result.as_dict()['randomized'], True)
         self.assertEqual(result.as_dict()['complete'], True)
 
-    # def test_big(self):
-    #     obj = _big_fixture(self._cut)
-    #     result = obj.calculate()
-    #     print('Big runtime ({}): {} seconds'.format(obj.__class__.__name__, result.runtime))
+    def test_big(self):
+        seats, candidates = 4, 9
+        obj = _big_fixture(self._cut, candidates, seats)
+        if obj.__class__.__name__ == 'CPO_STV':
+            print('CPO possible combinations: {}'.format(obj.__class__.possible_combinations(candidates, seats)))
+        result = obj.calculate()
+        print('Big runtime ({}): {} seconds (randomized: {})'.format(obj.__class__.__name__, result.runtime, result.randomized))
+        print(map(str, result.as_dict()['winners']))
 
 
 class COPSTVTests(ScottishSTVTests):

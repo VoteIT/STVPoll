@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+from collections import Counter
 from decimal import Decimal
 from random import choice
 from itertools import combinations
@@ -105,8 +106,10 @@ class CPO_STV(STVPollBase):
                 comparison_poll,
                 combination))
 
-        # Return either a clear winner (no ties), or resolved using Ranked Pairs
-        return self.get_duels_winner(duels) or self.resolve_tie_ranked_pairs(duels)
+        # Return either a clear winner (no ties), or resolved using MiniMax
+        return self.get_duels_winner(duels) or self.resolve_tie_minimax(duels)
+        # ... Ranked Pairs (so slow)
+        # return self.get_duels_winner(duels) or self.resolve_tie_ranked_pairs(duels)
 
     def get_duels_winner(self, duels):
         # type: (List[CPOComparisonResult]) -> List[Candidate]
@@ -129,15 +132,37 @@ class CPO_STV(STVPollBase):
         # No clear winner and no random
         return []
 
+    def resolve_tie_minimax(self, duels):
+        # type: (List[CPOComparisonResult]) -> List[Candidate]
+        from tarjan import tarjan
+        graph = {}
+        for d in duels:
+            try:
+                graph[d.loser].append(d.winner)
+            except KeyError:
+                graph[d.loser] = [d.winner]
+            if d.tied:
+                try:
+                    graph[d.winner].append(d.loser)
+                except KeyError:
+                    graph[d.winner] = [d.loser]
+        smith_set = tarjan(graph)[0]
+
+        biggest_defeats = Counter()
+        for candidates in smith_set:
+            ds = filter(lambda d: d.loser == candidates or (d.tied and d.winner == candidates), duels)
+            biggest_defeats[candidates] = max([d.difference for d in ds])
+        defeat_list = biggest_defeats.most_common()
+        equals = [defeat[0] for defeat in defeat_list if defeat[1] == defeat_list[-1][1]]
+        if len(equals) > 1:
+            return self.choice(equals)
+        return equals[0]
+
     def resolve_tie_ranked_pairs(self, duels):
         # type: (List[CPOComparisonResult]) -> List[Candidate]
         # https://medium.com/freds-blog/explaining-the-condorcet-system-9b4f47aa4e60
         class TracebackFound(STVException):
             pass
-
-        # Can't declare winners if duel was tied.
-        duels = filter(lambda d: not d.tied, duels)
-        noncircular_duels = []
 
         def traceback(duel, _trace=None):
             # type: (CPOComparisonResult, CPOComparisonResult) -> None
@@ -146,33 +171,36 @@ class CPO_STV(STVPollBase):
                     raise TracebackFound()
                 traceback(duel, trace)
 
-        sorted_duels = sorted(duels, key=lambda d: d.difference, reverse=True)
-        while len(sorted_duels):
-            duel = sorted_duels[0]
-
-            # Check if there are equal difference duels
-            # Need to make sure these do not cause tiebreaks depending on order
-            equals = filter(lambda d: d.difference == duel.difference, sorted_duels)
-            if len(equals) > 1:
-                saved_list = noncircular_duels[:]
-                try:
-                    for eduel in equals:
-                        traceback(eduel)
-                        noncircular_duels.append(eduel)
-                except TracebackFound:
-                    if self.random_in_tiebreaks:
-                        self.result.randomized = True
-                        duel = choice(equals)
-                    else:
-                        raise IncompleteResult()
-                noncircular_duels = saved_list
-
+        difference_groups = {}
+        # filter: Can't declare winners if duel was tied.
+        for d in filter(lambda d: not d.tied, duels):
             try:
-                traceback(duel)
-                noncircular_duels.append(duel)
+                difference_groups[d.difference].append(d)
+            except KeyError:
+                difference_groups[d.difference] = [d]
+
+        noncircular_duels = []
+
+        # Check if there are equal difference duels
+        # Need to make sure these do not cause tiebreaks depending on order
+        for difference in sorted(difference_groups.keys(), reverse=True):
+            saved_list = noncircular_duels[:]
+            group = difference_groups[difference]
+            try:
+                for duel in group:
+                    traceback(duel)
+                    noncircular_duels.append(duel)
             except TracebackFound:
-                pass
-            sorted_duels.remove(duel)
+                if len(group) > 1:
+                    noncircular_duels = saved_list
+                    while group:
+                        duel = self.choice(group)
+                        try:
+                            traceback(duel)
+                            noncircular_duels.append(duel)
+                        except TracebackFound:
+                            pass
+                        group.remove(duel)
 
         return self.get_duels_winner(noncircular_duels)
 
