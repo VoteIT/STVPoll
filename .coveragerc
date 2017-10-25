@@ -1,3 +1,6 @@
 [run]
-source = stvpoll
-omit = stvpoll/test*
+omit =
+  *test*py
+
+[report]
+show_missing = true
