@@ -1,6 +1,5 @@
 from __future__ import unicode_literals
 
-from collections import Counter
 from copy import deepcopy
 from decimal import Decimal
 from math import floor

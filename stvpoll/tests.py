@@ -4,7 +4,6 @@ import unittest
 import os
 import json
 from codecs import open
-from pprint import pprint
 
 from stvpoll.scottish_stv import ScottishSTV
 from stvpoll.cpo_stv import CPO_STV

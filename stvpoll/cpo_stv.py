@@ -2,11 +2,10 @@ from __future__ import unicode_literals
 
 from collections import Counter
 from decimal import Decimal
-from random import choice
 from itertools import combinations
 from math import factorial
 
-from stvpoll.exceptions import STVException, IncompleteResult
+from stvpoll.exceptions import STVException
 from typing import Iterable
 from typing import List
 
