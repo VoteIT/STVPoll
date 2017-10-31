@@ -1,9 +1,13 @@
 from __future__ import unicode_literals
 
 import unittest
-from random import choice
+import os
+import json
+from codecs import open
+from pprint import pprint
 
-from stvpoll import hagenbach_bischof_quota
+from stvpoll.scottish_stv import ScottishSTV
+from stvpoll.cpo_stv import CPO_STV
 
 
 def _opa_example_fixture(factory):
@@ -80,9 +84,7 @@ def _CPO_extreme_tie_fixture(factory):
 
 
 def _big_fixture(factory, candidates, seats):
-    import json
-    from codecs import open
-    with open('stvpoll/70 in 35.json') as infile:
+    with open('stvpoll/testdata/70 in 35.json') as infile:
         votedata = json.load(infile)
     # obj = factory(seats=votedata['seats'], candidates=votedata['candidates'])
     obj = factory(candidates=votedata['candidates'][:candidates], seats=seats)
@@ -113,7 +115,6 @@ class STVPollBaseTests(unittest.TestCase):
         obj.add_ballot(['a'])
         obj.add_ballot(['a'])
         obj.add_ballot(['b'])
-        self.assertEqual(set(obj.ballots), set([('a',), ('b',), ('a', 'b')]))
         self.assertEqual(obj.ballot_count, 6)
 
     def test_verify_ballot(self):
@@ -121,34 +122,30 @@ class STVPollBaseTests(unittest.TestCase):
 
 
 class ScottishSTVTests(unittest.TestCase):
-    opa_results = ('Alice', 'Bob', 'Chris')
-    wiki_results = ('chocolate', 'orange', 'strawberry')
-    wiki_cpo_results = ('Carter', 'Scott', 'Andrea')
+    opa_results = {'Alice', 'Bob', 'Chris'}
+    wiki_results = {'chocolate', 'strawberry', 'orange'}
+    wiki_cpo_results = {'Carter', 'Scott', 'Andrea'}
 
     @property
     def _cut(self):
-        from stvpoll.scottish_stv import ScottishSTV
         return ScottishSTV
 
     def test_opa_example(self):
         obj = _opa_example_fixture(self._cut)
         result = obj.calculate()
-#        print(map(str, result.rounds))
-        self.assertEqual(result.elected_as_tuple(), self.opa_results)
+        self.assertEqual(result.elected_as_set(), self.opa_results)
         self.assertEqual(result.as_dict()['randomized'], False)
 
     def test_wikipedia_example(self):
         obj = _wikipedia_example_fixture(self._cut)
         result = obj.calculate()
-#        print(map(str, result.rounds))
-        self.assertEqual(result.elected_as_tuple(), self.wiki_results)
+        self.assertEqual(result.elected_as_set(), self.wiki_results)
         self.assertEqual(result.as_dict()['randomized'], False)
 
     def test_wikipedia_cpo_example(self):
         obj = _wikipedia_cpo_example_fixture(self._cut)
         result = obj.calculate()
-#        print(map(str, result.rounds))
-        self.assertEqual(result.elected_as_tuple(), self.wiki_cpo_results)
+        self.assertEqual(result.elected_as_set(), self.wiki_cpo_results)
         self.assertEqual(result.as_dict()['randomized'], False)
 
     def test_tiebreak_randomized(self):
@@ -157,22 +154,78 @@ class ScottishSTVTests(unittest.TestCase):
         self.assertEqual(result.as_dict()['randomized'], True)
         self.assertEqual(result.as_dict()['complete'], True)
 
-    def test_big(self):
-        seats, candidates = 4, 9
-        obj = _big_fixture(self._cut, candidates, seats)
-        if obj.__class__.__name__ == 'CPO_STV':
-            print('CPO possible combinations: {}'.format(obj.__class__.possible_combinations(candidates, seats)))
-        result = obj.calculate()
-        print('Big runtime ({}): {} seconds (randomized: {})'.format(obj.__class__.__name__, result.runtime, result.randomized))
-        print(map(str, result.as_dict()['winners']))
+    # def test_big(self):
+    #     seats, candidates = 12, 20
+    #     obj = _big_fixture(self._cut, candidates, seats)
+    #     if obj.__class__.__name__ == 'CPO_STV':
+    #         print('CPO possible combinations: {}'.format(obj.__class__.possible_combinations(candidates, seats)))
+    #     else:
+    #         result = obj.calculate()
+    #         print('Big runtime ({}): {} seconds (randomized: {})'.format(obj.__class__.__name__, result.runtime, result.randomized))
+    #         print(map(str, result.as_dict()['winners']))
 
 
-class COPSTVTests(ScottishSTVTests):
-    wiki_cpo_results = ('Carter', 'Andrea', 'Delilah')
+class CPOSTVTests(ScottishSTVTests):
+    wiki_cpo_results = {'Carter', 'Andrea', 'Delilah'}
 
     @property
     def _cut(self):
-        from stvpoll.cpo_stv import CPO_STV
+        return CPO_STV
+
+
+class ScottishElectionTests(unittest.TestCase):
+    ward_winners = (
+        {'Kevin  LANG', 'Louise YOUNG', 'Graham HUTCHISON', 'Norrie WORK'},
+        {'Graeme BRUCE', 'Neil GARDINER', 'Ricky HENDERSON', 'Susan WEBBER'},
+        {'Robert Christopher ALDRIDGE', 'Claire BRIDGMAN', 'Mark BROWN'},
+        {'Eleanor BIRD', 'Jim CAMPBELL', 'Cammy DAY', 'George GORDON'},
+        {'Gavin BARRIE', 'Max MITCHELL', 'Hal OSLER', 'Iain  WHYTE'},
+        {'Scott DOUGLAS', 'Gillian GLOYER', 'Frank ROSS'},
+        {'Denis DIXON', 'Catherine FULLERTON', 'Ashley GRACZYK', 'Donald WILSON'},
+        {'Scott ARTHUR', 'Phil DOGGART', 'Jason RUST'},
+        {'Gavin CORBETT', 'Andrew JOHNSTON', 'David KEY'},
+        {'Nick COOK', 'Melanie MAIN', 'Neil ROSS', 'Mandy WATT'},
+        {'Karen DORAN', 'Claire MILLER', 'Jo MOWAT', 'Alasdair RANKIN'},
+        {'Marion DONALDSON', 'Amy MCNEESE-MECHAN', 'Susan RAE', 'Lewis RITCHIE'},
+        {'Chas BOOTH', 'Adam MCVEY', 'Gordon John MUNRO'},
+        {'Ian CAMPBELL', 'Joan GRIFFITHS', 'John MCLELLAN', 'Alex STANIFORTH'},
+        {'Steve BURGESS', 'Alison DICKIE', 'Ian PERRY', 'Cameron ROSE'},
+        {'Lezley Marion CAMERON', 'Derek HOWIE', 'Lesley MACINNES', 'Stephanie SMITH'},
+        {'KATE CAMPBELL', 'MARY CAMPBELL', 'Maureen CHILD', 'Callum LAIDLAW'},
+    )
+
+    @property
+    def _cut(self):
+        return ScottishSTV
+
+    def test_all(self):
+        election_dir = 'stvpoll/testdata/scottish_election_data/'
+        for f in os.listdir(election_dir):
+            ballots = []
+            candidates = []
+            with open(election_dir + f) as edata:
+                standing, winners = map(int, edata.readline().strip().split(' '))
+                while True:
+                    line = edata.readline().strip().split(' ')
+                    if line[0] == '0':
+                        break
+                    count = int(line.pop(0))
+                    line.pop()
+                    ballots.append((map(int, line), count))
+                for i in range(standing):
+                    candidates.append(edata.readline().strip()[1:-1])
+
+            poll = ScottishSTV(winners, candidates)
+            for b in ballots:
+                poll.add_ballot([candidates[i-1] for i in b[0]], b[1])
+            result = poll.calculate()
+            ward_number = int(f.split('_')[1])
+            self.assertEqual(result.elected_as_set(), self.ward_winners[ward_number-1])
+
+
+class CPOElectionTests(ScottishElectionTests):
+    @property
+    def _cut(self):
         return CPO_STV
 
 

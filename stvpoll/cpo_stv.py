@@ -99,7 +99,7 @@ class CPO_STV(STVPollBase):
                 compared=compared)
 
             for ballot in self.ballots:
-                comparison_poll.add_ballot([c.obj for c in ballot], self.ballots[ballot])
+                comparison_poll.add_ballot([c.obj for c in ballot.preferences], ballot.count)
 
             comparison_poll.calculate()
             duels.append(CPOComparisonResult(

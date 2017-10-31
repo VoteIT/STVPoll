@@ -29,7 +29,39 @@ def hare_quota(poll):
     return int(floor(Decimal(poll.ballot_count) / poll.seats))
 
 
-class Candidate:
+class PreferenceBallot(object):
+    def __init__(self, preferences, count):
+        # type: (List[Candidate],int) -> None
+        self.preferences = preferences
+        self.count = count
+        self.multiplier = Decimal(1)
+
+    @property
+    def value(self):
+        return self.multiplier * self.count
+
+    def decrease_value(self, multiplier):
+        self.multiplier *= multiplier
+
+    @property
+    def current_preference(self):
+        try:
+            return self.preferences[0]
+        except IndexError:
+            pass
+
+    @property
+    def exhausted(self):
+        return len(self.preferences) == 0
+
+    def get_transfer_preference(self, standing_candidates):
+        while not self.exhausted:
+            self.preferences.pop(0)
+            if self.current_preference in standing_candidates:
+                return self.current_preference
+
+
+class Candidate(object):
     EXCLUDED = 0
     HOPEFUL = 1
     ELECTED = 2
@@ -57,26 +89,26 @@ class Candidate:
         return self.obj.__hash__()
 
 
-class ElectionRound:
+class ElectionRound(object):
     SELECTION_METHOD_DIRECT = 0
     SELECTION_METHOD_HISTORY = 1
     SELECTION_METHOD_RANDOM = 2
     SELECTION_METHOD_NO_COMPETITION = 3
     SELECTION_METHOD_CPO = 4
     SELECTION_METHODS = (
-        'direct',
-        'history',
-        'dice roll',
-        'no competition left',
+        'Direct',
+        'Tiebreak (history)',
+        'Tiebreak (Random)',
+        'No competition left',
         'Comparison of Pairs of Outcomes',
     )
-    selected = None
     status = None
     selection_method = None
 
     def __init__(self, _id):
         # type: (int) -> None
         self._id = _id
+        self.selected = []
 
     def status_display(self):
         # type: () -> basestring
@@ -84,7 +116,7 @@ class ElectionRound:
 
     def select(self, candidate, votes, method, status):
         # type: (Candidate, List[Candidate], int, int) -> None
-        self.selected = candidate
+        self.selected.append(candidate)
         self.status = status
         self.votes = deepcopy(votes)
         self.selection_method = method
@@ -94,20 +126,20 @@ class ElectionRound:
         return '<ElectionRound {}: {} {}{}>'.format(
             self._id,
             self.status_display(),
-            self.selected,
+            ', '.join([c.obj for c in self.selected]),
             self.selection_method and ' ({})'.format(self.SELECTION_METHODS[self.selection_method]) or '')
 
     def as_dict(self):
         # type: () -> dict
         return {
             'status': self.status_display(),
-            'selected': self.selected.obj,
+            'selected': tuple(s.obj for s in self.selected),
             'method': self.SELECTION_METHODS[self.selection_method],
             'vote_count': tuple([{c.obj: c.votes} for c in self.votes]),
         }
 
 
-class ElectionResult:
+class ElectionResult(object):
     exhausted = Decimal(0)
     runtime = .0
     randomized = False
@@ -117,7 +149,6 @@ class ElectionResult:
         self.poll = poll
         self.rounds = []
         self.elected = []
-        self.seats = poll.seats
         self.start_time = time()
 
     def __str__(self):
@@ -142,16 +173,24 @@ class ElectionResult:
         if status == Candidate.ELECTED:
             self.elected.append(candidate)
         self.current_round.select(candidate, votes, method, status)
-        # print('Selected {} wth {} votes ({})'.format(candidate, candidate.votes, status))
+
+    def select_multiple(self, candidates, votes, method, status=Candidate.ELECTED):
+        # type: (Iterable[Candidate], List[Candidate], int, int) -> None
+        for candidate in candidates:
+            self.select(candidate, votes, method, status)
 
     @property
     def complete(self):
         # type: () -> bool
-        return len(self.elected) == self.seats
+        return len(self.elected) == self.poll.seats
 
     def elected_as_tuple(self):
         # type: () -> tuple
         return tuple(map(lambda x: x.obj, self.elected))
+
+    def elected_as_set(self):
+        # type: () -> set
+        return set(self.elected_as_tuple())
 
     def as_dict(self):
         # type: () -> dict
@@ -162,6 +201,7 @@ class ElectionResult:
             'rounds': tuple([r.as_dict() for r in self.rounds]),
             'randomized': self.randomized,
             'quota': self.poll.quota,
+            'runtime': self.runtime,
         }
 
 
@@ -171,7 +211,7 @@ class STVPollBase(object):
     def __init__(self, seats, candidates, quota=droop_quota, random_in_tiebreaks=True):
         # type: (int, List, Callable, bool) -> None
         self.candidates = map(Candidate, candidates)
-        self.ballots = Counter()
+        self.ballots = []
         self._quota_function = quota
         self.seats = seats
         self.errors = []
@@ -197,7 +237,7 @@ class STVPollBase(object):
     @property
     def ballot_count(self):
         # type: () -> int
-        return sum(self.ballots.values())
+        return sum([b.count for b in self.ballots])
 
     def add_ballot(self, ballot, num=1):
         # type: (List, int) -> None
@@ -210,27 +250,20 @@ class STVPollBase(object):
                 candidates.append(self.get_existing_candidate(obj))
             except CandidateDoesNotExist:
                 self.errors.append('Candidate "{}" not found'.format(obj))
-        self.ballots[tuple(candidates)] += num
+        self.ballots.append(PreferenceBallot(candidates, num))
 
-    def verify_ballot(self, ballot):
-        # type: (List) -> None
-        if len(set(ballot)) != len(ballot):
-            raise BallotException("Duplicate candidates on ballot")
-        for k in ballot:
-            if k not in self.candidates:
-                raise BallotException("%s is not in the list of candidates" % k)
+    # def verify_ballot(self, ballot):
+    #     # type: (List) -> None
+    #     if len(set(ballot)) != len(ballot):
+    #         raise BallotException("Duplicate candidates on ballot")
+    #     for k in ballot:
+    #         if k not in self.candidates:
+    #             raise BallotException("%s is not in the list of candidates" % k)
 
-    # TODO Remove excludes, probably
-    def get_candidate(self, most_votes=True, excludes=None):
-        # type: (bool) -> (Candidate, int, List[Candidate])
-        if excludes:
-            sample = filter(lambda c: c not in excludes, self.still_running)
-            if not sample:
-                raise CandidateDoesNotExist
-        else:
-            sample = self.still_running
-        candidate = sorted(sample, key=lambda c: c.votes, reverse=most_votes)[0]
-        ties = [c for c in sample if c.votes == candidate.votes]
+    def get_candidate(self, most_votes=True):
+        # type: (bool) -> (Candidate, int)
+        candidate = sorted(self.standing_candidates, key=lambda c: c.votes, reverse=most_votes)[0]
+        ties = [c for c in self.standing_candidates if c.votes == candidate.votes]
         if len(ties) > 1:
             return self.resolve_tie(ties, most_votes)
         return candidate, ElectionRound.SELECTION_METHOD_DIRECT
@@ -260,36 +293,45 @@ class STVPollBase(object):
     def transfer_votes(self, candidate, transfer_quota=Decimal(1)):
         # type: (Candidate, Decimal) -> None
         for ballot in self.ballots:
-            ballot_quota = self.ballots[ballot] * transfer_quota
-            if not ballot:
-                self.result.exhausted += ballot_quota
+            if candidate != ballot.current_preference:
                 continue
+            ballot.decrease_value(transfer_quota)
+            target_candidate = ballot.get_transfer_preference(self.standing_candidates)
+            if target_candidate:
+                target_candidate.votes += ballot.value
+            else:
+                self.result.exhausted += ballot.value
 
-            transfered = transfer_vote = False
-            for bcandidate in ballot:
-                if not transfer_vote and bcandidate.running:
-                    break
-                if bcandidate == candidate:
-                    transfer_vote = True
-                    continue
-                if transfer_vote and bcandidate.running:
-                    bcandidate.votes += ballot_quota
-                    transfered = True
-                    break
-            if transfer_vote and not transfered:
-                self.result.exhausted += ballot_quota
+            # transfered = transfer_vote = False
+            # for bcandidate in ballot:
+            #     if not transfer_vote and bcandidate.running:
+            #         break
+            #     if bcandidate == candidate:
+            #         transfer_vote = True
+            #         continue
+            #     if transfer_vote and bcandidate.running:
+            #         bcandidate.votes += ballot.value
+            #         transfered = True
+            #         break
+            # if transfer_vote and not transfered:
+            #     self.result.exhausted += ballot.value
 
     def initial_votes(self):
         for ballot in self.ballots:
             try:
-                ballot[0].votes += self.ballots[ballot]
-            except IndexError:
+                ballot.current_preference.votes += ballot.value
+            except AttributeError:
                 pass
+
+    @property
+    def standing_candidates(self):
+        # type: () -> List[Candidate]
+        return list(filter(lambda c: c.running, self.candidates))
 
     @property
     def still_running(self):
         # type: () -> List[Candidate]
-        return list(filter(lambda c: c.running, self.candidates))
+        return self.standing_candidates
 
     @property
     def current_votes(self):
@@ -313,8 +355,8 @@ class STVPollBase(object):
 
     def select_multiple(self, candidates, method, status=Candidate.ELECTED):
         # type: (Iterable[Candidate], int, int) -> None
-        for candidate in sorted(candidates, key=lambda c: c.votes, reverse=True):
-            self.select(candidate, method, status)
+        self.result.new_round()
+        self.result.select_multiple(candidates, self.still_running, method, status)
 
     def calculate(self):
         # type: () -> ElectionResult
@@ -330,7 +372,7 @@ class STVPollBase(object):
 
     def do_rounds(self):
         # type: () -> None
-        while not self.result.complete:
+        while self.seats_to_fill > 0:
             self.calculate_round()
 
     def calculate_round(self):

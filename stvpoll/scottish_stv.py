@@ -16,16 +16,20 @@ class ScottishSTV(STVPollBase):
 
     def calculate_round(self):
         # type: () -> None
-        candidate, method = self.get_candidate()
-        if candidate.votes > self.quota:
-            self.select(candidate, method)
-            transfer_quota = ScottishSTV.round((candidate.votes - self.quota) / candidate.votes)
-            self.transfer_votes(candidate, transfer_quota=transfer_quota)
+        winners = filter(lambda c: c.votes >= self.quota, self.standing_candidates)
+        if winners:
+            winners = sorted(winners, key=lambda c: c.votes, reverse=True)
+            self.select_multiple(winners, ElectionRound.SELECTION_METHOD_DIRECT)
+            for candidate in winners:
+                transfer_quota = ScottishSTV.round((candidate.votes - self.quota) / candidate.votes)
+                self.transfer_votes(candidate, transfer_quota=transfer_quota)
+            return
 
-        elif self.seats_to_fill == len(self.still_running):
-            self.select(candidate, ElectionRound.SELECTION_METHOD_NO_COMPETITION)
+        # In case of vote exhaustion, this is theoretically possible.
+        if self.seats_to_fill == len(self.standing_candidates):
+            self.select_multiple(self.standing_candidates, ElectionRound.SELECTION_METHOD_NO_COMPETITION)
+            return
 
-        else:
-            candidate, method = self.get_candidate(most_votes=False)
-            self.select(candidate, method, Candidate.EXCLUDED)
-            self.transfer_votes(candidate)
+        candidate, method = self.get_candidate(most_votes=False)
+        self.select(candidate, method, Candidate.EXCLUDED)
+        self.transfer_votes(candidate)
