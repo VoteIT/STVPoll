@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+from collections import Counter
 from copy import deepcopy
 from decimal import Decimal
 from math import floor
@@ -66,6 +67,7 @@ class Candidate(object):
     ELECTED = 2
     status = HOPEFUL
     votes = Decimal(0)
+    votes_transferred = False
 
     def __init__(self, obj):
         # type: (object) -> None
@@ -76,7 +78,7 @@ class Candidate(object):
         return '<Candidate: {}>'.format(str(self.obj))
 
     @property
-    def running(self):
+    def standing(self):
         return self.status == self.HOPEFUL
 
     def __eq__(self, o):
@@ -149,6 +151,7 @@ class ElectionResult(object):
         self.rounds = []
         self.elected = []
         self.start_time = time()
+        self.transfer_log = []
 
     def __str__(self):
         # type: () -> basestring
@@ -262,8 +265,8 @@ class STVPollBase(object):
     def get_candidate(self, most_votes=True):
         # type: (bool) -> (Candidate, int)
         candidate = sorted(self.standing_candidates, key=lambda c: c.votes, reverse=most_votes)[0]
-        ties = [c for c in self.standing_candidates if c.votes == candidate.votes]
-        if len(ties) > 1:
+        ties = self.get_ties(candidate)
+        if ties:
             return self.resolve_tie(ties, most_votes)
         return candidate, ElectionRound.SELECTION_METHOD_DIRECT
 
@@ -273,24 +276,24 @@ class STVPollBase(object):
             return choice(candidates)
         raise IncompleteResult('Unresolved tiebreak (random disallowed)')
 
-    def resolve_tie(self, candidates, most_votes):
+    def resolve_tie(self, candidates, most_votes=True):
         # type: (List[Candidate], bool) -> (Candidate, int)
-        for round in self.result.rounds[::-1]:  # TODO Make the code below readable
-            round_votes = filter(lambda v: v in candidates, round.votes)
-            sorted_round_votes = sorted(round_votes, key=lambda c: c.votes, reverse=most_votes)
-            primary_candidate = sorted_round_votes[0]
-            round_candidates = [v for v in round_votes if v.votes == primary_candidate.votes]
+        for stage in self.result.transfer_log[::-1]:  # TODO Make the code below readable
+            stage_votes = filter(lambda v: v in candidates, stage['current_votes'])
+            primary_candidate = sorted(stage_votes, key=lambda c: c.votes, reverse=most_votes)[0]
 
-            if len(round_candidates) == 1:
-                winner = [c for c in candidates if c == primary_candidate][0]
+            ties = self.get_ties(primary_candidate, stage_votes)
+            if ties:
+                candidates = filter(lambda c: c in ties, candidates)
+            else:
+                winner = [c for c in candidates if c == primary_candidate][0]  # Get correct Candidate instance
                 return winner, ElectionRound.SELECTION_METHOD_HISTORY
-
-            candidates = [c for c in candidates if c in round_candidates]
 
         return self.choice(candidates), ElectionRound.SELECTION_METHOD_RANDOM
 
     def transfer_votes(self, candidate, transfer_quota=Decimal(1)):
         # type: (Candidate, Decimal) -> None
+        transfers = Counter()
         for ballot in self.ballots:
             if candidate != ballot.current_preference:
                 continue
@@ -298,44 +301,42 @@ class STVPollBase(object):
             target_candidate = ballot.get_transfer_preference(self.standing_candidates)
             if target_candidate:
                 target_candidate.votes += ballot.value
+                transfers[(candidate, target_candidate)] += ballot.value
             else:
                 self.result.exhausted += ballot.value
 
-            # transfered = transfer_vote = False
-            # for bcandidate in ballot:
-            #     if not transfer_vote and bcandidate.running:
-            #         break
-            #     if bcandidate == candidate:
-            #         transfer_vote = True
-            #         continue
-            #     if transfer_vote and bcandidate.running:
-            #         bcandidate.votes += ballot.value
-            #         transfered = True
-            #         break
-            # if transfer_vote and not transfered:
-            #     self.result.exhausted += ballot.value
+        self.result.transfer_log.append({
+            'transfers': transfers,
+            'current_votes': self.current_votes,
+            'exhausted_votes': self.result.exhausted,
+        })
+        candidate.votes_transferred = True
 
     def initial_votes(self):
+        # type () -> None
         for ballot in self.ballots:
             try:
                 ballot.current_preference.votes += ballot.value
             except AttributeError:
                 pass
 
+    def get_ties(self, candidate, sample=None):
+        # type (Candidate, List[Candidate]) -> List[Candidate]
+        if not sample:
+            sample = self.standing_candidates
+        ties = filter(lambda c: c.votes == candidate.votes, sample)
+        if len(ties) > 1:
+            return ties
+
     @property
     def standing_candidates(self):
         # type: () -> List[Candidate]
-        return list(filter(lambda c: c.running, self.candidates))
-
-    @property
-    def still_running(self):
-        # type: () -> List[Candidate]
-        return self.standing_candidates
+        return list(filter(lambda c: c.standing, self.candidates))
 
     @property
     def current_votes(self):
         # type: () -> List[Candidate]
-        return deepcopy(self.still_running)
+        return deepcopy(self.standing_candidates)
 
     @property
     def seats_to_fill(self):
@@ -350,12 +351,12 @@ class STVPollBase(object):
     def select(self, candidate, method, status=Candidate.ELECTED):
         # type: (Candidate, int, int) -> None
         self.result.new_round()
-        self.result.select(candidate, self.still_running, method, status)
+        self.result.select(candidate, self.standing_candidates, method, status)
 
     def select_multiple(self, candidates, method, status=Candidate.ELECTED):
         # type: (Iterable[Candidate], int, int) -> None
         self.result.new_round()
-        self.result.select_multiple(candidates, self.still_running, method, status)
+        self.result.select_multiple(candidates, self.standing_candidates, method, status)
 
     def calculate(self):
         # type: () -> ElectionResult

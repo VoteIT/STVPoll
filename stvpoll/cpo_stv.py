@@ -25,11 +25,11 @@ class CPOComparisonPoll(STVPollBase):
 
     def do_rounds(self):
         # type: () -> None
-        for exclude in set(self.still_running).difference(self.winners):
+        for exclude in set(self.standing_candidates).difference(self.winners):
             self.select(exclude, ElectionRound.SELECTION_METHOD_DIRECT, Candidate.EXCLUDED)
             self.transfer_votes(exclude)
 
-        for transfer in set(self.still_running).difference(self.compared):
+        for transfer in set(self.standing_candidates).difference(self.compared):
             self.select(transfer, ElectionRound.SELECTION_METHOD_DIRECT)
             self.transfer_votes(transfer, transfer_quota=(Decimal(transfer.votes) - self.quota) / transfer.votes)
             transfer.votes = self.quota
@@ -86,7 +86,7 @@ class CPO_STV(STVPollBase):
         # type: (int) -> Iterable[Candidate]
         duels = []
 
-        possible_outcomes = list(combinations(self.still_running, self.seats_to_fill))
+        possible_outcomes = list(combinations(self.standing_candidates, self.seats_to_fill))
         for combination in combinations(possible_outcomes, 2):
             compared = set([c for sublist in combination for c in sublist])
             winners = set(compared)

@@ -5,8 +5,10 @@ import os
 import json
 from codecs import open
 
+from stvpoll import STVPollBase
 from stvpoll.scottish_stv import ScottishSTV
 from stvpoll.cpo_stv import CPO_STV
+from typing import Type
 
 
 def _opa_example_fixture(factory):
@@ -63,6 +65,7 @@ def _wikipedia_cpo_example_fixture(factory):
 
 
 def _CPO_extreme_tie_fixture(factory):
+    # type: (Type[STVPollBase]) -> STVPollBase
     """
     Example from https://en.wikipedia.org/wiki/CPO-STV
     """
@@ -127,6 +130,7 @@ class ScottishSTVTests(unittest.TestCase):
 
     @property
     def _cut(self):
+        # type: () -> Type[STVPollBase]
         return ScottishSTV
 
     def test_opa_example(self):
@@ -195,6 +199,7 @@ class ScottishElectionTests(unittest.TestCase):
 
     @property
     def _cut(self):
+        # type: () -> Type[STVPollBase]
         return ScottishSTV
 
     def test_all(self):

@@ -16,20 +16,31 @@ class ScottishSTV(STVPollBase):
 
     def calculate_round(self):
         # type: () -> None
+
+        # First, declare winners if any are over quota
         winners = filter(lambda c: c.votes >= self.quota, self.standing_candidates)
         if winners:
-            winners = sorted(winners, key=lambda c: c.votes, reverse=True)
-            self.select_multiple(winners, ElectionRound.SELECTION_METHOD_DIRECT)
-            for candidate in winners:
-                transfer_quota = ScottishSTV.round((candidate.votes - self.quota) / candidate.votes)
-                self.transfer_votes(candidate, transfer_quota=transfer_quota)
-            return
+            self.select_multiple(
+                sorted(winners, key=lambda c: c.votes, reverse=True),
+                ElectionRound.SELECTION_METHOD_DIRECT)
+
+        # Are there winner votes to transfer, then do that.
+        transfers = filter(lambda c: not c.votes_transferred, self.result.elected)
+        if transfers:
+            candidate = transfers[0]
+            ties = self.get_ties(candidate, transfers)
+            if ties:
+                candidate = self.resolve_tie(ties)
+
+            transfer_quota = ScottishSTV.round((candidate.votes - self.quota) / candidate.votes)
+            self.transfer_votes(candidate, transfer_quota=transfer_quota)
 
         # In case of vote exhaustion, this is theoretically possible.
-        if self.seats_to_fill == len(self.standing_candidates):
+        elif self.seats_to_fill == len(self.standing_candidates):
             self.select_multiple(self.standing_candidates, ElectionRound.SELECTION_METHOD_NO_COMPETITION)
-            return
 
-        candidate, method = self.get_candidate(most_votes=False)
-        self.select(candidate, method, Candidate.EXCLUDED)
-        self.transfer_votes(candidate)
+        # Else exclude a candidate
+        else:
+            candidate, method = self.get_candidate(most_votes=False)
+            self.select(candidate, method, Candidate.EXCLUDED)
+            self.transfer_votes(candidate)
