@@ -149,9 +149,6 @@ class STVPollBaseTests(unittest.TestCase):
         obj.add_ballot(['b'])
         self.assertEqual(obj.ballot_count, 6)
 
-    def test_verify_ballot(self):
-        pass
-
 
 class ScottishSTVTests(unittest.TestCase):
     opa_results = {'Alice', 'Bob', 'Chris'}
@@ -190,10 +187,7 @@ class ScottishSTVTests(unittest.TestCase):
     def test_scottish_tiebreak_history(self):
         obj = _scottish_tiebreak_history_fixture(self._cut)
         result = obj.calculate()
-        print (map(str, result.rounds))
-#        self.assertEqual(result.as_dict()['quota'], 3)
-#        self.assertEqual(result.as_dict()['winners'], ('Gorm', 'Andrea', 'Robin'))
-        self.assertEqual(result.as_dict()['randomized'], False)
+        self.assertEqual(result.as_dict()['randomized'], not isinstance(obj, ScottishSTV))
         self.assertEqual(result.as_dict()['complete'], True)
 
     def test_incomplete_result(self):
@@ -203,12 +197,12 @@ class ScottishSTVTests(unittest.TestCase):
         self.assertEqual(result.as_dict()['complete'], False)
 
 
-# class CPOSTVTests(ScottishSTVTests):
-#     wiki_cpo_results = {'Carter', 'Andrea', 'Delilah'}
-#
-#     @property
-#     def _cut(self):
-#         return CPO_STV
+class CPOSTVTests(ScottishSTVTests):
+    wiki_cpo_results = {'Carter', 'Andrea', 'Delilah'}
+
+    @property
+    def _cut(self):
+        return CPO_STV
 
 
 class ScottishElectionTests(unittest.TestCase):
@@ -263,6 +257,7 @@ class ScottishElectionTests(unittest.TestCase):
 
 
 # class CPOElectionTests(ScottishElectionTests):
+#
 #     @property
 #     def _cut(self):
 #         return CPO_STV

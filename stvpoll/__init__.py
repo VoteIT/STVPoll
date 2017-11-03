@@ -6,12 +6,15 @@ from decimal import Decimal
 from math import floor
 from random import choice
 from time import time
+
 from typing import Callable
 from typing import Iterable
 from typing import List
 
-from stvpoll.exceptions import BallotException, STVException, IncompleteResult
+from stvpoll.exceptions import BallotException
 from stvpoll.exceptions import CandidateDoesNotExist
+from stvpoll.exceptions import IncompleteResult
+from stvpoll.exceptions import STVException
 
 
 def hagenbach_bischof_quota(poll):
@@ -73,7 +76,7 @@ class Candidate(object):
         # type: (object) -> None
         self.obj = obj
 
-    def __repr__(self):
+    def __repr__(self): #pragma: no coverage
         # type: () -> basestring
         return '<Candidate: {}>'.format(str(self.obj))
 
@@ -83,6 +86,8 @@ class Candidate(object):
 
     def __eq__(self, o):
         # type: (Candidate) -> bool
+        if isinstance(o, Candidate):
+            return self.obj == o.obj
         return self.obj == o
 
     def __hash__(self):
@@ -122,7 +127,7 @@ class ElectionRound(object):
         self.votes = deepcopy(votes)
         self.selection_method = method
 
-    def __repr__(self):
+    def __repr__(self): #pragma: no coverage
         # type: () -> basestring
         return '<ElectionRound {}: {} {}{}>'.format(
             self._id,
@@ -153,7 +158,7 @@ class ElectionResult(object):
         self.start_time = time()
         self.transfer_log = []
 
-    def __str__(self):
+    def __repr__(self): #pragma: no coverage
         # type: () -> basestring
         return '<ElectionResult in {} round(s): {}>'.format(len(self.rounds),  ', '.join(map(str, self.elected)))
 
@@ -225,7 +230,7 @@ class STVPollBase(object):
     def get_existing_candidate(self, obj):
         # type: (object) -> Candidate
         for candidate in self.candidates:
-            if candidate.obj == obj:
+            if candidate == obj:
                 return candidate
         raise CandidateDoesNotExist()
 
@@ -245,22 +250,8 @@ class STVPollBase(object):
         # type: (List, int) -> None
         candidates = []
         for obj in ballot:
-            if isinstance(obj, Candidate):
-                candidates.append(obj)
-                continue
-            try:
-                candidates.append(self.get_existing_candidate(obj))
-            except CandidateDoesNotExist:
-                self.errors.append('Candidate "{}" not found'.format(obj))
+            candidates.append(self.get_existing_candidate(obj))
         self.ballots.append(PreferenceBallot(candidates, num))
-
-    # def verify_ballot(self, ballot):
-    #     # type: (List) -> None
-    #     if len(set(ballot)) != len(ballot):
-    #         raise BallotException("Duplicate candidates on ballot")
-    #     for k in ballot:
-    #         if k not in self.candidates:
-    #             raise BallotException("%s is not in the list of candidates" % k)
 
     def get_candidate(self, most_votes=True):
         # type: (bool) -> (Candidate, int)
@@ -278,17 +269,15 @@ class STVPollBase(object):
 
     def resolve_tie(self, candidates, most_votes=True):
         # type: (List[Candidate], bool) -> (Candidate, int)
-        for stage in self.result.transfer_log[::-1]:  # TODO Make the code below readable
+        for stage in self.result.transfer_log[::-1]:
             stage_votes = filter(lambda v: v in candidates, stage['current_votes'])
             primary_candidate = sorted(stage_votes, key=lambda c: c.votes, reverse=most_votes)[0]
-
             ties = self.get_ties(primary_candidate, stage_votes)
             if ties:
                 candidates = filter(lambda c: c in ties, candidates)
             else:
                 winner = [c for c in candidates if c == primary_candidate][0]  # Get correct Candidate instance
                 return winner, ElectionRound.SELECTION_METHOD_HISTORY
-
         return self.choice(candidates), ElectionRound.SELECTION_METHOD_RANDOM
 
     def transfer_votes(self, candidate, transfer_quota=Decimal(1)):
@@ -358,12 +347,13 @@ class STVPollBase(object):
 
     def select_multiple(self, candidates, method, status=Candidate.ELECTED):
         # type: (Iterable[Candidate], int, int) -> None
-        self.result.new_round()
-        self.result.select_multiple(candidates, self.standing_candidates, method, status)
+        if candidates:
+            self.result.new_round()
+            self.result.select_multiple(candidates, self.standing_candidates, method, status)
 
     def calculate(self):
         # type: () -> ElectionResult
-        if not self.ballots:
+        if not self.ballots: #pragma: no coverage
             raise STVException('No ballots registered.')
         self.initial_votes()
         try:
@@ -378,6 +368,6 @@ class STVPollBase(object):
         while self.seats_to_fill > 0:
             self.calculate_round()
 
-    def calculate_round(self):
+    def calculate_round(self): #pragma: no coverage
         # type: (int) -> None
         raise NotImplementedError()
