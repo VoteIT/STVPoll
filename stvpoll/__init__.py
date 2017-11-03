@@ -306,6 +306,12 @@ class STVPollBase(object):
         for ballot in self.ballots:
             ballot.current_preference.votes += ballot.value
 
+        self.result.transfer_log.append({
+            'transfers': None,
+            'current_votes': self.current_votes,
+            'exhausted_votes': self.result.exhausted,
+        })
+
     def get_ties(self, candidate, sample=None):
         # type (Candidate, List[Candidate]) -> List[Candidate]
         if not sample:
@@ -341,8 +347,9 @@ class STVPollBase(object):
 
     def select_multiple(self, candidates, method, status=Candidate.ELECTED):
         # type: (Iterable[Candidate], int, int) -> None
-        self.result.new_round()
-        self.result.select_multiple(candidates, self.standing_candidates, method, status)
+        if candidates:
+            self.result.new_round()
+            self.result.select_multiple(candidates, self.standing_candidates, method, status)
 
     def calculate(self):
         # type: () -> ElectionResult

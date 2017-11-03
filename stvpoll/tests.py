@@ -74,12 +74,42 @@ def _CPO_extreme_tie_fixture(factory):
         (('Andrea', 'Batman', 'Robin'), 1),
         (('Robin', 'Andrea', 'Batman'), 1),
         (('Batman', 'Robin', 'Andrea'), 1),
-        # (('Andrea'), 1),
-        # (('Robin'), 1),
-        # (('Batman'), 1),
         (('Gorm',), 2),
     )
     obj = factory(seats=2, candidates=example_candidates)
+    for b in example_ballots:
+        obj.add_ballot(*b)
+    return obj
+
+
+def _scottish_tiebreak_history_fixture(factory):
+    # type: (Type[STVPollBase]) -> STVPollBase
+    """
+    Example from https://en.wikipedia.org/wiki/CPO-STV
+    """
+    example_candidates = ('Andrea', 'Robin', 'Gorm')
+    example_ballots = (
+        (('Andrea', ), 3),
+        (('Robin', ), 2),
+        (('Gorm', 'Robin'), 1),
+    )
+    obj = factory(seats=1, candidates=example_candidates, quota=lambda x: 100)
+    for b in example_ballots:
+        obj.add_ballot(*b)
+    return obj
+
+
+def _incomplete_result_fixture(factory):
+    # type: (Type[STVPollBase]) -> STVPollBase
+    """
+    Example from https://en.wikipedia.org/wiki/CPO-STV
+    """
+    example_candidates = ('Andrea', 'Batman', 'Robin', 'Gorm')
+    example_ballots = (
+        (('Batman',), 1),
+        (('Gorm',), 2),
+    )
+    obj = factory(seats=3, candidates=example_candidates, random_in_tiebreaks=False)
     for b in example_ballots:
         obj.add_ballot(*b)
     return obj
@@ -153,6 +183,18 @@ class ScottishSTVTests(unittest.TestCase):
         result = obj.calculate()
         self.assertEqual(result.as_dict()['randomized'], True)
         self.assertEqual(result.as_dict()['complete'], True)
+
+    def test_scottish_tiebreak_history(self):
+        obj = _scottish_tiebreak_history_fixture(self._cut)
+        result = obj.calculate()
+        self.assertEqual(result.as_dict()['randomized'], not isinstance(obj, ScottishSTV))
+        self.assertEqual(result.as_dict()['complete'], True)
+
+    def test_incomplete_result(self):
+        obj = _incomplete_result_fixture(self._cut)
+        result = obj.calculate()
+        self.assertEqual(result.as_dict()['randomized'], False)
+        self.assertEqual(result.as_dict()['complete'], False)
 
 
 class CPOSTVTests(ScottishSTVTests):
