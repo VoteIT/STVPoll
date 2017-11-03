@@ -119,9 +119,6 @@ class STVPollBaseTests(unittest.TestCase):
         obj.add_ballot(['b'])
         self.assertEqual(obj.ballot_count, 6)
 
-    def test_verify_ballot(self):
-        pass
-
 
 class ScottishSTVTests(unittest.TestCase):
     opa_results = {'Alice', 'Bob', 'Chris'}
@@ -156,16 +153,6 @@ class ScottishSTVTests(unittest.TestCase):
         result = obj.calculate()
         self.assertEqual(result.as_dict()['randomized'], True)
         self.assertEqual(result.as_dict()['complete'], True)
-
-    # def test_big(self):
-    #     seats, candidates = 12, 20
-    #     obj = _big_fixture(self._cut, candidates, seats)
-    #     if obj.__class__.__name__ == 'CPO_STV':
-    #         print('CPO possible combinations: {}'.format(obj.__class__.possible_combinations(candidates, seats)))
-    #     else:
-    #         result = obj.calculate()
-    #         print('Big runtime ({}): {} seconds (randomized: {})'.format(obj.__class__.__name__, result.runtime, result.randomized))
-    #         print(map(str, result.as_dict()['winners']))
 
 
 class CPOSTVTests(ScottishSTVTests):
@@ -227,10 +214,11 @@ class ScottishElectionTests(unittest.TestCase):
             self.assertEqual(result.elected_as_set(), self.ward_winners[ward_number-1])
 
 
-class CPOElectionTests(ScottishElectionTests):
-    @property
-    def _cut(self):
-        return CPO_STV
+# class CPOElectionTests(ScottishElectionTests):
+#
+#     @property
+#     def _cut(self):
+#         return CPO_STV
 
 
 if __name__ == "__main__":
