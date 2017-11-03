@@ -315,10 +315,13 @@ class STVPollBase(object):
     def initial_votes(self):
         # type () -> None
         for ballot in self.ballots:
-            try:
-                ballot.current_preference.votes += ballot.value
-            except AttributeError:
-                pass
+            ballot.current_preference.votes += ballot.value
+
+        self.result.transfer_log.append({
+            'transfers': None,
+            'current_votes': self.current_votes,
+            'exhausted_votes': self.result.exhausted,
+        })
 
     def get_ties(self, candidate, sample=None):
         # type (Candidate, List[Candidate]) -> List[Candidate]

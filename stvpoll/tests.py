@@ -74,12 +74,42 @@ def _CPO_extreme_tie_fixture(factory):
         (('Andrea', 'Batman', 'Robin'), 1),
         (('Robin', 'Andrea', 'Batman'), 1),
         (('Batman', 'Robin', 'Andrea'), 1),
-        # (('Andrea'), 1),
-        # (('Robin'), 1),
-        # (('Batman'), 1),
         (('Gorm',), 2),
     )
     obj = factory(seats=2, candidates=example_candidates)
+    for b in example_ballots:
+        obj.add_ballot(*b)
+    return obj
+
+
+def _scottish_tiebreak_history_fixture(factory):
+    # type: (Type[STVPollBase]) -> STVPollBase
+    """
+    Example from https://en.wikipedia.org/wiki/CPO-STV
+    """
+    example_candidates = ('Andrea', 'Robin', 'Gorm')
+    example_ballots = (
+        (('Andrea', ), 3),
+        (('Robin', ), 2),
+        (('Gorm', 'Robin'), 1),
+    )
+    obj = factory(seats=1, candidates=example_candidates, quota=lambda x: 100)
+    for b in example_ballots:
+        obj.add_ballot(*b)
+    return obj
+
+
+def _incomplete_result_fixture(factory):
+    # type: (Type[STVPollBase]) -> STVPollBase
+    """
+    Example from https://en.wikipedia.org/wiki/CPO-STV
+    """
+    example_candidates = ('Andrea', 'Batman', 'Robin', 'Gorm')
+    example_ballots = (
+        (('Batman',), 1),
+        (('Gorm',), 2),
+    )
+    obj = factory(seats=3, candidates=example_candidates, random_in_tiebreaks=False)
     for b in example_ballots:
         obj.add_ballot(*b)
     return obj
@@ -157,23 +187,28 @@ class ScottishSTVTests(unittest.TestCase):
         self.assertEqual(result.as_dict()['randomized'], True)
         self.assertEqual(result.as_dict()['complete'], True)
 
-    # def test_big(self):
-    #     seats, candidates = 12, 20
-    #     obj = _big_fixture(self._cut, candidates, seats)
-    #     if obj.__class__.__name__ == 'CPO_STV':
-    #         print('CPO possible combinations: {}'.format(obj.__class__.possible_combinations(candidates, seats)))
-    #     else:
-    #         result = obj.calculate()
-    #         print('Big runtime ({}): {} seconds (randomized: {})'.format(obj.__class__.__name__, result.runtime, result.randomized))
-    #         print(map(str, result.as_dict()['winners']))
+    def test_scottish_tiebreak_history(self):
+        obj = _scottish_tiebreak_history_fixture(self._cut)
+        result = obj.calculate()
+        print (map(str, result.rounds))
+#        self.assertEqual(result.as_dict()['quota'], 3)
+#        self.assertEqual(result.as_dict()['winners'], ('Gorm', 'Andrea', 'Robin'))
+        self.assertEqual(result.as_dict()['randomized'], False)
+        self.assertEqual(result.as_dict()['complete'], True)
+
+    def test_incomplete_result(self):
+        obj = _incomplete_result_fixture(self._cut)
+        result = obj.calculate()
+        self.assertEqual(result.as_dict()['randomized'], False)
+        self.assertEqual(result.as_dict()['complete'], False)
 
 
-class CPOSTVTests(ScottishSTVTests):
-    wiki_cpo_results = {'Carter', 'Andrea', 'Delilah'}
-
-    @property
-    def _cut(self):
-        return CPO_STV
+# class CPOSTVTests(ScottishSTVTests):
+#     wiki_cpo_results = {'Carter', 'Andrea', 'Delilah'}
+#
+#     @property
+#     def _cut(self):
+#         return CPO_STV
 
 
 class ScottishElectionTests(unittest.TestCase):
@@ -227,10 +262,10 @@ class ScottishElectionTests(unittest.TestCase):
             self.assertEqual(result.elected_as_set(), self.ward_winners[ward_number-1])
 
 
-class CPOElectionTests(ScottishElectionTests):
-    @property
-    def _cut(self):
-        return CPO_STV
+# class CPOElectionTests(ScottishElectionTests):
+#     @property
+#     def _cut(self):
+#         return CPO_STV
 
 
 if __name__ == "__main__":
