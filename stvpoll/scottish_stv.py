@@ -30,7 +30,7 @@ class ScottishSTV(STVPollBase):
             candidate = transfers[0]
             ties = self.get_ties(candidate, transfers)
             if ties:
-                candidate = self.resolve_tie(ties)
+                candidate, method = self.resolve_tie(ties)
 
             transfer_quota = ScottishSTV.round((candidate.votes - self.quota) / candidate.votes)
             self.transfer_votes(candidate, transfer_quota=transfer_quota)
