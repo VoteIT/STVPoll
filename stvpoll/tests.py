@@ -118,10 +118,22 @@ def _incomplete_result_fixture(factory):
 def _big_fixture(factory, candidates, seats):
     with open('stvpoll/testdata/70 in 35.json') as infile:
         votedata = json.load(infile)
-    # obj = factory(seats=votedata['seats'], candidates=votedata['candidates'])
     obj = factory(candidates=votedata['candidates'][:candidates], seats=seats)
     for b in votedata['ballots']:
         obj.add_ballot(b, 1)
+    return obj
+
+
+def _tie_break_that_breaks(factory):
+    example_candidates = \
+        [u'A', u'B', u'C', u'D', u'E', u'F']
+    example_ballots = (
+        ([u'A', u'D',u'C'], 1),
+        ([u'E', u'C', u'A', u'B'], 1),
+    )
+    obj = factory(seats=3, candidates=example_candidates, random_in_tiebreaks=True)
+    for b in example_ballots:
+        obj.add_ballot(*b)
     return obj
 
 
@@ -157,7 +169,7 @@ class ScottishSTVTests(unittest.TestCase):
 
     @property
     def _cut(self):
-        # type: () -> Type[STVPollBase]
+        # type: () -> Type[ScottishSTV]
         return ScottishSTV
 
     def test_opa_example(self):
@@ -195,6 +207,12 @@ class ScottishSTVTests(unittest.TestCase):
         result = obj.calculate()
         self.assertEqual(result.as_dict()['randomized'], False)
         self.assertEqual(result.as_dict()['complete'], False)
+
+    def test_tie_break_that_breaks(self):
+        obj = _tie_break_that_breaks(self._cut)
+        result = obj.calculate()
+        self.assertEqual(result.as_dict()['randomized'], True)
+        self.assertEqual(result.as_dict()['complete'], True)
 
 
 class CPOSTVTests(ScottishSTVTests):
