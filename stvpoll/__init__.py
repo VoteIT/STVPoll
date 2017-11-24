@@ -304,7 +304,8 @@ class STVPollBase(object):
     def initial_votes(self):
         # type () -> None
         for ballot in self.ballots:
-            ballot.current_preference.votes += ballot.value
+            if ballot.current_preference:
+                ballot.current_preference.votes += ballot.value
 
         self.result.transfer_log.append({
             'transfers': None,
