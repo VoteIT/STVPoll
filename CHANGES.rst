@@ -4,7 +4,7 @@ Changes
 0.1.3-dev (dev)
 ------------------
 
-- Unreleased
+- Excluded empty ballots, so that they do not affect the quota. [schyffel]
 
 0.1.2 (2017-11-24)
 ------------------
