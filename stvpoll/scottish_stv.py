@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
 from decimal import Decimal
@@ -5,9 +6,13 @@ from decimal import Decimal
 from stvpoll import STVPollBase
 from stvpoll import Candidate
 from stvpoll import ElectionRound
+from stvpoll.quotas import droop_quota
 
 
 class ScottishSTV(STVPollBase):
+
+    def __init__(self, seats, candidates, quota=droop_quota, random_in_tiebreaks=True):
+        super(ScottishSTV, self).__init__(seats, candidates, quota, random_in_tiebreaks)
 
     @staticmethod
     def round(value):

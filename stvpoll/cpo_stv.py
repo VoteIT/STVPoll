@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
 from collections import Counter
@@ -12,7 +13,7 @@ from typing import List
 from stvpoll import Candidate
 from stvpoll import ElectionRound
 from stvpoll import STVPollBase
-from stvpoll import hagenbach_bischof_quota
+from stvpoll.quotas import hagenbach_bischof_quota
 
 
 class CPOComparisonPoll(STVPollBase):

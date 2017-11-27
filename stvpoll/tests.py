@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
 import unittest
@@ -92,7 +93,7 @@ def _scottish_tiebreak_history_fixture(factory):
         (('Andrea', ), 3),
         (('Robin', ), 2),
         (('Gorm', 'Robin'), 1),
-        ((), 1),
+        ((), 3),
     )
     obj = factory(seats=1, candidates=example_candidates, quota=lambda x: 100)
     for b in example_ballots:
@@ -142,8 +143,8 @@ class STVPollBaseTests(unittest.TestCase):
 
     @property
     def _cut(self):
-        from stvpoll import STVPollBase
-        return STVPollBase
+        from stvpoll.scottish_stv import ScottishSTV
+        return ScottishSTV
 
     def test_ballot_count(self):
         obj = self._cut(seats=0, candidates=('a', 'b'))
@@ -196,12 +197,14 @@ class ScottishSTVTests(unittest.TestCase):
         result = obj.calculate()
         self.assertEqual(result.as_dict()['randomized'], True)
         self.assertEqual(result.as_dict()['complete'], True)
+        self.assertEqual(result.as_dict()['empty_ballot_count'], 0)
 
     def test_scottish_tiebreak_history(self):
         obj = _scottish_tiebreak_history_fixture(self._cut)
         result = obj.calculate()
         self.assertEqual(result.as_dict()['randomized'], not isinstance(obj, ScottishSTV))
         self.assertEqual(result.as_dict()['complete'], True)
+        self.assertEqual(result.as_dict()['empty_ballot_count'], 3)
 
     def test_incomplete_result(self):
         obj = _incomplete_result_fixture(self._cut)

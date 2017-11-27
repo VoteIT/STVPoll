@@ -1,9 +1,9 @@
+# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
 from collections import Counter
 from copy import deepcopy
 from decimal import Decimal
-from math import floor
 from random import choice
 from time import time
 
@@ -15,21 +15,6 @@ from stvpoll.exceptions import BallotException
 from stvpoll.exceptions import CandidateDoesNotExist
 from stvpoll.exceptions import IncompleteResult
 from stvpoll.exceptions import STVException
-
-
-def hagenbach_bischof_quota(poll):
-    # type: (STVPollBase) -> int
-    return int(floor(Decimal(poll.ballot_count) / (poll.seats + 1)))
-
-
-def droop_quota(poll):
-    # type: (STVPollBase) -> int
-    return hagenbach_bischof_quota(poll) + 1
-
-
-def hare_quota(poll):
-    # type: (STVPollBase) -> int
-    return int(floor(Decimal(poll.ballot_count) / poll.seats))
 
 
 class PreferenceBallot(object):
@@ -76,7 +61,7 @@ class Candidate(object):
         # type: (object) -> None
         self.obj = obj
 
-    def __repr__(self): #pragma: no coverage
+    def __repr__(self):  # pragma: no coverage
         # type: () -> basestring
         return '<Candidate: {}>'.format(str(self.obj))
 
@@ -127,7 +112,7 @@ class ElectionRound(object):
         self.votes = deepcopy(votes)
         self.selection_method = method
 
-    def __repr__(self): #pragma: no coverage
+    def __repr__(self):  # pragma: no coverage
         # type: () -> basestring
         return '<ElectionRound {}: {} {}{}>'.format(
             self._id,
@@ -149,6 +134,7 @@ class ElectionResult(object):
     exhausted = Decimal(0)
     runtime = .0
     randomized = False
+    empty_ballot_count = 0
 
     def __init__(self, poll):
         # type: (STVPollBase) -> None
@@ -158,7 +144,7 @@ class ElectionResult(object):
         self.start_time = time()
         self.transfer_log = []
 
-    def __repr__(self): #pragma: no coverage
+    def __repr__(self):  # pragma: no coverage
         # type: () -> basestring
         return '<ElectionResult in {} round(s): {}>'.format(len(self.rounds),  ', '.join(map(str, self.elected)))
 
@@ -209,13 +195,14 @@ class ElectionResult(object):
             'randomized': self.randomized,
             'quota': self.poll.quota,
             'runtime': self.runtime,
+            'empty_ballot_count': self.empty_ballot_count,
         }
 
 
 class STVPollBase(object):
     _quota = None
 
-    def __init__(self, seats, candidates, quota=droop_quota, random_in_tiebreaks=True):
+    def __init__(self, seats, candidates, quota, random_in_tiebreaks=True):
         # type: (int, List, Callable, bool) -> None
         self.candidates = map(Candidate, candidates)
         self.ballots = []
@@ -251,7 +238,12 @@ class STVPollBase(object):
         candidates = []
         for obj in ballot:
             candidates.append(self.get_existing_candidate(obj))
-        self.ballots.append(PreferenceBallot(candidates, num))
+
+        # Empty votes will not affect quota, but will be accounted for in result.
+        if candidates:
+            self.ballots.append(PreferenceBallot(candidates, num))
+        else:
+            self.result.empty_ballot_count += num
 
     def get_candidate(self, most_votes=True):
         # type: (bool) -> (Candidate, int)
@@ -304,7 +296,7 @@ class STVPollBase(object):
     def initial_votes(self):
         # type () -> None
         for ballot in self.ballots:
-            if ballot.current_preference:
+            if ballot.current_preference:  # Should never happen, really
                 ballot.current_preference.votes += ballot.value
 
         self.result.transfer_log.append({
@@ -354,7 +346,7 @@ class STVPollBase(object):
 
     def calculate(self):
         # type: () -> ElectionResult
-        if not self.ballots: #pragma: no coverage
+        if not self.ballots:  # pragma: no coverage
             raise STVException('No ballots registered.')
         self.initial_votes()
         try:
@@ -369,6 +361,6 @@ class STVPollBase(object):
         while self.seats_to_fill > 0:
             self.calculate_round()
 
-    def calculate_round(self): #pragma: no coverage
+    def calculate_round(self):  # pragma: no coverage
         # type: (int) -> None
         raise NotImplementedError()
