@@ -1,10 +1,15 @@
 Changes
 =======
 
-0.1.2-dev
----------
+0.1.3-dev (dev)
+------------------
 
-- unreleased
+- Unreleased
+
+0.1.2 (2017-11-24)
+------------------
+
+- Fixed exception on empty ballots. [schyffel]
 
 0.1.1 (2017-11-24)
 ------------------
