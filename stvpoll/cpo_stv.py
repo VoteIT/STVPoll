@@ -6,7 +6,6 @@ from decimal import Decimal
 from itertools import combinations
 from math import factorial
 
-from stvpoll.exceptions import STVException
 from typing import Iterable
 from typing import List
 
@@ -75,12 +74,12 @@ class CPO_STV(STVPollBase):
         super(CPO_STV, self).__init__(*args, quota=quota, **kwargs)
 
     @staticmethod
-    def possible_combinations(total, limit):
+    def possible_combinations(proposals, winners):
         # type: (int, int) -> int
-        return factorial(total) / factorial(limit) / factorial(total - limit)
+        return factorial(proposals) / factorial(winners) / factorial(proposals - winners)
 
     def get_best_approval(self):
-        # type: (int) -> Iterable[Candidate]
+        # type: () -> Iterable[Candidate]
         duels = []
 
         possible_outcomes = list(combinations(self.standing_candidates, self.seats_to_fill))
@@ -198,7 +197,7 @@ class CPO_STV(STVPollBase):
     #     return self.get_duels_winner(noncircular_duels)
 
     def do_rounds(self):
-        # type: (int) -> None
+        # type: () -> None
 
         if len(self.candidates) == self.seats:
             self.select_multiple(

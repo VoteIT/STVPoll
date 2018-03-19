@@ -202,8 +202,8 @@ class ElectionResult(object):
 class STVPollBase(object):
     _quota = None
 
-    def __init__(self, seats, candidates, quota, random_in_tiebreaks=True):
-        # type: (int, List, Callable, bool) -> None
+    def __init__(self, seats, candidates, quota=None, random_in_tiebreaks=True):
+        # type: (int, Iterable, Callable, bool) -> None
         self.candidates = map(Candidate, candidates)
         self.ballots = []
         self._quota_function = quota
@@ -346,8 +346,8 @@ class STVPollBase(object):
 
     def calculate(self):
         # type: () -> ElectionResult
-        if not self.ballots:  # pragma: no coverage
-            raise STVException('No ballots registered.')
+        # if not self.ballots:  # pragma: no coverage
+        #     raise STVException('No ballots registered.')
         self.initial_votes()
         try:
             self.do_rounds()
@@ -358,7 +358,7 @@ class STVPollBase(object):
 
     def do_rounds(self):
         # type: () -> None
-        while self.seats_to_fill > 0:
+        while self.seats_to_fill:
             self.calculate_round()
 
     def calculate_round(self):  # pragma: no coverage
