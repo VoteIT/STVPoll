@@ -1,10 +1,10 @@
 Changes
 =======
 
-0.1.4 (dev)
------------
+0.1.4 (2018-05-12)
+------------------
 
-- (dev)
+- Fixed a situation where primary_candidate in rounds didn't exist. [schyffel] [robinharms]
 
 
 0.1.3 (2018-03-22)
