@@ -263,13 +263,14 @@ class STVPollBase(object):
         # type: (List[Candidate], bool) -> (Candidate, int)
         for stage in self.result.transfer_log[::-1]:
             stage_votes = filter(lambda v: v in candidates, stage['current_votes'])
-            primary_candidate = sorted(stage_votes, key=lambda c: c.votes, reverse=most_votes)[0]
-            ties = self.get_ties(primary_candidate, stage_votes)
-            if ties:
-                candidates = filter(lambda c: c in ties, candidates)
-            else:
-                winner = [c for c in candidates if c == primary_candidate][0]  # Get correct Candidate instance
-                return winner, ElectionRound.SELECTION_METHOD_HISTORY
+            if stage_votes:
+                primary_candidate = sorted(stage_votes, key=lambda c: c.votes, reverse=most_votes)[0]
+                ties = self.get_ties(primary_candidate, stage_votes)
+                if ties:
+                    candidates = filter(lambda c: c in ties, candidates)
+                else:
+                    winner = [c for c in candidates if c == primary_candidate][0]  # Get correct Candidate instance
+                    return winner, ElectionRound.SELECTION_METHOD_HISTORY
         return self.choice(candidates), ElectionRound.SELECTION_METHOD_RANDOM
 
     def transfer_votes(self, candidate, transfer_quota=Decimal(1)):
