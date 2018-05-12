@@ -1,0 +1,18 @@
+language: python
+sudo: false
+bundler_args: --retry 8
+
+python:
+  - 2.7
+  - 3.5
+  - 3.6
+  
+before_install:
+  - pip install --upgrade pip
+  - pip install nose
+
+install:
+  - pip install .
+
+script:
+  - travis_retry nosetests
