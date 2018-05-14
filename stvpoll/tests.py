@@ -202,9 +202,12 @@ class ScottishSTVTests(unittest.TestCase):
     def test_scottish_tiebreak_history(self):
         obj = _scottish_tiebreak_history_fixture(self._cut)
         result = obj.calculate()
-        self.assertEqual(result.as_dict()['randomized'], not isinstance(obj, ScottishSTV))
-        self.assertEqual(result.as_dict()['complete'], True)
-        self.assertEqual(result.as_dict()['empty_ballot_count'], 3)
+        try:
+            self.assertEqual(result.as_dict()['randomized'], not isinstance(obj, ScottishSTV))
+            self.assertEqual(result.as_dict()['complete'], True)
+            self.assertEqual(result.as_dict()['empty_ballot_count'], 3)
+        except AttributeError:
+            import pdb; pdb.set_trace()
 
     def test_incomplete_result(self):
         obj = _incomplete_result_fixture(self._cut)
@@ -217,6 +220,24 @@ class ScottishSTVTests(unittest.TestCase):
         result = obj.calculate()
         self.assertEqual(result.as_dict()['randomized'], True)
         self.assertEqual(result.as_dict()['complete'], True)
+        self.assertEqual(obj.complete, True)
+
+    def test_multiple_quota_tiebreak(self):
+        poll = self._cut(seats=4, candidates=['one', 'two', 'three', 'four', 'five', 'six'])
+        poll.add_ballot(['one', 'three'])
+        poll.add_ballot(['two', 'four'])
+        poll.add_ballot(['five', 'six'])
+        result = poll.calculate()
+        self.assertTrue(result.complete)
+
+    def test_exceptions(self):
+        from stvpoll.exceptions import STVException
+        from stvpoll.exceptions import CandidateDoesNotExist
+        with self.assertRaises(STVException):
+            self._cut(seats=3, candidates=['one', 'two'])
+        with self.assertRaises(CandidateDoesNotExist):
+            obj = self._cut(seats=3, candidates=['one', 'two', 'three'])
+            obj.add_ballot(['one', 'four'])
 
 
 class CPOSTVTests(ScottishSTVTests):
@@ -225,6 +246,14 @@ class CPOSTVTests(ScottishSTVTests):
     @property
     def _cut(self):
         return CPO_STV
+
+    def test_all_wins(self):
+        poll = self._cut(seats=2, candidates=['one', 'two'])
+        poll.calculate()
+        self.assertTrue(poll.complete)
+
+    def test_possible_combinations(self):
+        self.assertEqual(CPO_STV.possible_combinations(5, 2), 10)
 
 
 class ScottishElectionTests(unittest.TestCase):

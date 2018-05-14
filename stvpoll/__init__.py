@@ -17,6 +17,11 @@ from stvpoll.exceptions import IncompleteResult
 from stvpoll.exceptions import STVException
 
 
+def _minmax(iterable, key=None, lowest=False):
+    method = lowest and min or max
+    return method(iterable, key=key)
+
+
 class PreferenceBallot(object):
     def __init__(self, preferences, count):
         # type: (List[Candidate],int) -> None
@@ -112,21 +117,27 @@ class ElectionRound(object):
         self.votes = deepcopy(votes)
         self.selection_method = method
 
+    @property
+    def method_str(self):
+        # type: () -> basestring
+        if isinstance(self.selection_method, int):
+            return self.SELECTION_METHODS[self.selection_method]
+
     def __repr__(self):  # pragma: no coverage
         # type: () -> basestring
         return '<ElectionRound {}: {} {}{}>'.format(
             self._id,
             self.status_display(),
             ', '.join([c.obj for c in self.selected]),
-            self.selection_method and ' ({})'.format(self.SELECTION_METHODS[self.selection_method]) or '')
+            self.selection_method and ' ({})'.format(self.method_str))
 
     def as_dict(self):
         # type: () -> dict
         return {
             'status': self.status_display(),
             'selected': tuple(s.obj for s in self.selected),
-            'method': self.SELECTION_METHODS[self.selection_method],
-            'vote_count': tuple([{c.obj: c.votes} for c in self.votes]),
+            'method': self.method_str,
+            'vote_count': tuple({c.obj: c.votes} for c in self.votes),
         }
 
 
@@ -204,7 +215,7 @@ class STVPollBase(object):
 
     def __init__(self, seats, candidates, quota=None, random_in_tiebreaks=True):
         # type: (int, Iterable, Callable, bool) -> None
-        self.candidates = map(Candidate, candidates)
+        self.candidates = [Candidate(c) for c in candidates]
         self.ballots = []
         self._quota_function = quota
         self.seats = seats
@@ -247,7 +258,7 @@ class STVPollBase(object):
 
     def get_candidate(self, most_votes=True):
         # type: (bool) -> (Candidate, int)
-        candidate = sorted(self.standing_candidates, key=lambda c: c.votes, reverse=most_votes)[0]
+        candidate = _minmax(self.standing_candidates, key=lambda c: c.votes, lowest=not most_votes)
         ties = self.get_ties(candidate)
         if ties:
             return self.resolve_tie(ties, most_votes)
@@ -262,30 +273,29 @@ class STVPollBase(object):
     def resolve_tie(self, candidates, most_votes=True):
         # type: (List[Candidate], bool) -> (Candidate, int)
         for stage in self.result.transfer_log[::-1]:
-            stage_votes = filter(lambda v: v in candidates, stage['current_votes'])
-            if stage_votes:
-                primary_candidate = sorted(stage_votes, key=lambda c: c.votes, reverse=most_votes)[0]
-                ties = self.get_ties(primary_candidate, stage_votes)
-                if ties:
-                    candidates = filter(lambda c: c in ties, candidates)
-                else:
-                    winner = [c for c in candidates if c == primary_candidate][0]  # Get correct Candidate instance
-                    return winner, ElectionRound.SELECTION_METHOD_HISTORY
+            # FIXME Important to also return voters with no votes (Decimal(0))
+            stage_votes = [v for v in stage['current_votes'] if v in candidates]
+            primary_candidate = _minmax(stage_votes, key=lambda c: c.votes, lowest=not most_votes)
+            ties = self.get_ties(primary_candidate, stage_votes)
+            if ties:
+                candidates = [c for c in candidates if c in ties]
+            else:
+                winner = candidates[candidates.index(primary_candidate)]  # Get correct Candidate instance
+                return winner, ElectionRound.SELECTION_METHOD_HISTORY
         return self.choice(candidates), ElectionRound.SELECTION_METHOD_RANDOM
 
     def transfer_votes(self, candidate, transfer_quota=Decimal(1)):
         # type: (Candidate, Decimal) -> None
         transfers = Counter()
         for ballot in self.ballots:
-            if candidate != ballot.current_preference:
-                continue
-            ballot.decrease_value(transfer_quota)
-            target_candidate = ballot.get_transfer_preference(self.standing_candidates)
-            if target_candidate:
-                target_candidate.votes += ballot.value
-                transfers[(candidate, target_candidate)] += ballot.value
-            else:
-                self.result.exhausted += ballot.value
+            if candidate == ballot.current_preference:
+                ballot.decrease_value(transfer_quota)
+                target_candidate = ballot.get_transfer_preference(self.standing_candidates)
+                if target_candidate:
+                    target_candidate.votes += ballot.value
+                    transfers[(candidate, target_candidate)] += ballot.value
+                else:
+                    self.result.exhausted += ballot.value
 
         self.result.transfer_log.append({
             'transfers': transfers,
@@ -297,8 +307,8 @@ class STVPollBase(object):
     def initial_votes(self):
         # type () -> None
         for ballot in self.ballots:
-            if ballot.current_preference:  # Should never happen, really
-                ballot.current_preference.votes += ballot.value
+            assert ballot.current_preference, 'Initial votes called with an empty vote'
+            ballot.current_preference.votes += ballot.value
 
         self.result.transfer_log.append({
             'transfers': None,
@@ -310,14 +320,14 @@ class STVPollBase(object):
         # type (Candidate, List[Candidate]) -> List[Candidate]
         if not sample:
             sample = self.standing_candidates
-        ties = filter(lambda c: c.votes == candidate.votes, sample)
+        ties = [c for c in sample if c.votes == candidate.votes]
         if len(ties) > 1:
             return ties
 
     @property
     def standing_candidates(self):
         # type: () -> List[Candidate]
-        return list(filter(lambda c: c.standing, self.candidates))
+        return [c for c in self.candidates if c.standing]
 
     @property
     def current_votes(self):

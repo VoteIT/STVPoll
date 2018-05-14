@@ -25,18 +25,17 @@ class ScottishSTV(STVPollBase):
         # First, declare winners if any are over quota
         winners = filter(lambda c: c.votes >= self.quota, self.standing_candidates)
         if winners:
+            # FIXME: There is a possibility that there are ties that should be resolved to get the order "right".
+            # There is also a theoretical possibility that the order of vote transfers can affect the order,
+            # although unlikely.
             self.select_multiple(
                 sorted(winners, key=lambda c: c.votes, reverse=True),
                 ElectionRound.SELECTION_METHOD_DIRECT)
 
-        # Are there winner votes to transfer, then do that.
-        transfers = filter(lambda c: not c.votes_transferred, self.result.elected)
+        # If there there are winner votes to transfer, then do that.
+        transfers = [c for c in self.result.elected if not c.votes_transferred]
         if transfers:
             candidate = transfers[0]
-            ties = self.get_ties(candidate, transfers)
-            if ties:
-                candidate, method = self.resolve_tie(ties)
-
             transfer_quota = ScottishSTV.round((candidate.votes - self.quota) / candidate.votes)
             self.transfer_votes(candidate, transfer_quota=transfer_quota)
 

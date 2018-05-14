@@ -1,6 +1,14 @@
 Changes
 =======
 
+0.2.0 (dev)
+-----------
+
+- Fixed bug in deciding which vote to transfer first when multiple elected in Scottish STV. [schyffel] [robinharms]
+- Now works on Python 3. [schyffel]
+- Test coverage 100 %. [schyffel]
+
+
 0.1.5 (dev)
 -----------
 

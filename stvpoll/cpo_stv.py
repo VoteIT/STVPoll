@@ -37,11 +37,11 @@ class CPOComparisonPoll(STVPollBase):
     @property
     def not_excluded(self):
         # type: () -> List[Candidate]
-        return list(filter(lambda c: c.status != Candidate.EXCLUDED, self.candidates))
+        return [c for c in self.candidates if c.status != Candidate.EXCLUDED]
 
     def total_except(self, candidates):
         # type: (List[Candidate]) -> Decimal
-        return sum([c.votes for c in self.not_excluded if c not in candidates])
+        return sum(c.votes for c in self.not_excluded if c not in candidates)
 
 
 class CPOComparisonResult:
@@ -129,26 +129,20 @@ class CPO_STV(STVPollBase):
         from tarjan import tarjan
         graph = {}
         for d in duels:
-            try:
-                graph[d.loser].append(d.winner)
-            except KeyError:
-                graph[d.loser] = [d.winner]
+            graph.setdefault(d.loser, []).append(d.winner)
             if d.tied:
-                try:
-                    graph[d.winner].append(d.loser)
-                except KeyError:
-                    graph[d.winner] = [d.loser]
+                graph.setdefault(d.winner, []).append(d.loser)
         smith_set = tarjan(graph)[0]
 
-        biggest_defeats = Counter()
+        biggest_defeats = {}
         for candidates in smith_set:
             ds = filter(lambda d: d.loser == candidates or (d.tied and d.winner == candidates), duels)
-            biggest_defeats[candidates] = max([d.difference for d in ds])
-        defeat_list = biggest_defeats.most_common()
-        equals = [defeat[0] for defeat in defeat_list if defeat[1] == defeat_list[-1][1]]
+            biggest_defeats[candidates] = max(d.difference for d in ds)
+        minimal_defeat = min(biggest_defeats.values())
+        equals = [defeat[0] for defeat in biggest_defeats.items() if defeat[1] == minimal_defeat]
         if len(equals) > 1:
             return self.choice(equals)
-        return equals[0]
+        return equals[0]  # pragma: no cover
 
     # def resolve_tie_ranked_pairs(self, duels):
     #     # type: (List[CPOComparisonResult]) -> List[Candidate]
@@ -206,7 +200,7 @@ class CPO_STV(STVPollBase):
             return
 
         self.select_multiple(
-            filter(lambda c: c.votes > self.quota, self.candidates),
+            [c for c in self.candidates if c.votes > self.quota],
             ElectionRound.SELECTION_METHOD_DIRECT)
 
         self.select_multiple(
