@@ -79,7 +79,7 @@ class CPO_STV(STVPollBase):
         return factorial(proposals) / factorial(winners) / factorial(proposals - winners)
 
     def get_best_approval(self):
-        # type: () -> Iterable[Candidate]
+        # type: () -> List[Candidate]
         duels = []
 
         possible_outcomes = list(combinations(self.standing_candidates, self.seats_to_fill))
@@ -204,5 +204,5 @@ class CPO_STV(STVPollBase):
             ElectionRound.SELECTION_METHOD_DIRECT)
 
         self.select_multiple(
-            self.get_best_approval(),
+            list(self.get_best_approval()),
             ElectionRound.SELECTION_METHOD_CPO)

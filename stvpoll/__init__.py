@@ -178,10 +178,10 @@ class ElectionResult(object):
             self.elected.append(candidate)
         self.current_round.select(candidate, votes, method, status)
 
-    def select_multiple(self, candidates, votes, method, status=Candidate.ELECTED):
-        # type: (Iterable[Candidate], List[Candidate], int, int) -> None
-        for candidate in candidates:
-            self.select(candidate, votes, method, status)
+    # def select_multiple(self, candidates, votes, method, status=Candidate.ELECTED):
+    #     # type: (Iterable[Candidate], List[Candidate], int, int) -> None
+    #     for candidate in candidates:
+    #         self.select(candidate, votes, method, status)
 
     @property
     def complete(self):
@@ -256,9 +256,11 @@ class STVPollBase(object):
         else:
             self.result.empty_ballot_count += num
 
-    def get_candidate(self, most_votes=True):
-        # type: (bool) -> (Candidate, int)
-        candidate = _minmax(self.standing_candidates, key=lambda c: c.votes, lowest=not most_votes)
+    def get_candidate(self, most_votes=True, sample=None):
+        # type: (bool, List(Candidate)) -> (Candidate, int)
+        if sample is None:
+            sample = self.standing_candidates
+        candidate = _minmax(sample, key=lambda c: c.votes, lowest=not most_votes)
         ties = self.get_ties(candidate)
         if ties:
             return self.resolve_tie(ties, most_votes)
@@ -273,7 +275,6 @@ class STVPollBase(object):
     def resolve_tie(self, candidates, most_votes=True):
         # type: (List[Candidate], bool) -> (Candidate, int)
         for stage in self.result.transfer_log[::-1]:
-            # FIXME Important to also return voters with no votes (Decimal(0))
             stage_votes = [v for v in stage['current_votes'] if v in candidates]
             primary_candidate = _minmax(stage_votes, key=lambda c: c.votes, lowest=not most_votes)
             ties = self.get_ties(primary_candidate, stage_votes)
@@ -349,11 +350,24 @@ class STVPollBase(object):
         self.result.new_round()
         self.result.select(candidate, self.standing_candidates, method, status)
 
-    def select_multiple(self, candidates, method, status=Candidate.ELECTED):
-        # type: (Iterable[Candidate], int, int) -> None
+    def select_multiple(self, candidates, method, status=Candidate.ELECTED, resolve_ties=False):
+        # type: (List[Candidate], int, int) -> None
         if candidates:
             self.result.new_round()
-            self.result.select_multiple(candidates, self.standing_candidates, method, status)
+            while candidates:
+                # Select candidates in order. If requested, resolve ties.
+                index = 0
+                _method = method
+                if resolve_ties:
+                    candidate, _method = self.get_candidate(
+                        most_votes=status == Candidate.ELECTED,
+                        sample=candidates)
+                    index = candidates.index(candidate)
+
+                self.result.select(
+                    candidates.pop(index),
+                    self.standing_candidates,
+                    _method, status)
 
     def calculate(self):
         # type: () -> ElectionResult

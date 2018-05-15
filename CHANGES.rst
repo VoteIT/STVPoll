@@ -1,6 +1,12 @@
 Changes
 =======
 
+0.2.1 (dev)
+-----------
+
+- Scottish STV: Resolve ties so that winners are always in correct ranking order (extreme case). [schyffel]
+
+
 0.2.0 (dev)
 -----------
 
