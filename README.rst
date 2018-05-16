@@ -1,6 +1,9 @@
 STVPoll README
 ==============
 
+.. image:: https://travis-ci.org/VoteIT/STVPoll.svg?branch=master
+    :target: https://travis-ci.org/VoteIT/STVPoll
+
 Library to perform STV Poll calculations.
 The package was created as part of the VoteIT project, specifically to handle larger
 elections that was hard to count with Markus Schulzes STV method.
