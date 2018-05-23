@@ -1,24 +1,14 @@
 Changes
 =======
 
-0.2.1 (dev)
------------
-
-- Scottish STV: Resolve ties so that winners are always in correct ranking order (extreme case). [schyffel]
-
 
 0.2.0 (dev)
 -----------
 
 - Fixed bug in deciding which vote to transfer first when multiple elected in Scottish STV. [schyffel] [robinharms]
+- Scottish STV: Resolve ties so that winners are always in correct ranking order (extreme case). [schyffel]
 - Now works on Python 3. [schyffel]
 - Test coverage 100 %. [schyffel]
-
-
-0.1.5 (dev)
------------
-
-- Unreleased
 
 
 0.1.4 (2018-05-12)
