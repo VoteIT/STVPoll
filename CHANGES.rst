@@ -2,8 +2,14 @@ Changes
 =======
 
 
-0.2.0 (dev)
+0.2.1 (dev)
 -----------
+
+- Unreleased
+
+
+0.2.0 (2018-05-23)
+------------------
 
 - Fixed bug in deciding which vote to transfer first when multiple elected in Scottish STV. [schyffel] [robinharms]
 - Scottish STV: Resolve ties so that winners are always in correct ranking order (extreme case). [schyffel]
