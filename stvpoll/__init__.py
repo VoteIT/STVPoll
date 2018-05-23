@@ -178,11 +178,6 @@ class ElectionResult(object):
             self.elected.append(candidate)
         self.current_round.select(candidate, votes, method, status)
 
-    # def select_multiple(self, candidates, votes, method, status=Candidate.ELECTED):
-    #     # type: (Iterable[Candidate], List[Candidate], int, int) -> None
-    #     for candidate in candidates:
-    #         self.select(candidate, votes, method, status)
-
     @property
     def complete(self):
         # type: () -> bool
