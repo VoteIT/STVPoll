@@ -239,6 +239,18 @@ class ScottishSTVTests(unittest.TestCase):
             obj = self._cut(seats=3, candidates=['one', 'two', 'three'])
             obj.add_ballot(['one', 'four'])
 
+    def test_randomization_disabled(self):
+        poll = self._cut(seats=2, candidates=['one', 'two', 'three'], random_in_tiebreaks=False)
+        poll.add_ballot(['one', 'two'], 2)
+        poll.add_ballot(['two', 'one'], 2)
+        poll.add_ballot(['three'], 1)
+        result = poll.calculate()
+        self.assertEqual(result.complete, not isinstance(poll, ScottishSTV))
+
+    def test_bad_config(self):
+        from stvpoll.exceptions import STVException
+        self.assertRaises(STVException, self._cut, seats=4, candidates=['one', 'two', 'three'])
+
 
 class CPOSTVTests(ScottishSTVTests):
     wiki_cpo_results = {'Carter', 'Andrea', 'Delilah'}

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-from collections import Counter
 from decimal import Decimal
 from itertools import combinations
 from math import factorial
@@ -80,8 +79,12 @@ class CPO_STV(STVPollBase):
 
     def get_best_approval(self):
         # type: () -> List[Candidate]
-        duels = []
 
+        # If no more seats to fill, there will be no duels. Return empty list.
+        if self.seats_to_fill == 0:
+            return []
+
+        duels = []
         possible_outcomes = list(combinations(self.standing_candidates, self.seats_to_fill))
         for combination in combinations(possible_outcomes, 2):
             compared = set([c for sublist in combination for c in sublist])

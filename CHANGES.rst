@@ -2,6 +2,13 @@ Changes
 =======
 
 
+0.2.2 (dev)
+-----------
+
+- Fixed bug with tie in first round on Scottish STV.
+- Fixed bug in quota selection of all seats in CPO.
+
+
 0.2.1 (dev)
 -----------
 

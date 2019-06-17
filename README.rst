@@ -16,9 +16,9 @@ Fully supported:
 
 * Scottish STV
 
-Work in progress:
+Mostly working:
 
-* CPO STV
+* CPO STV (Does not fail gracefully if too many outcomes)
 
 
 Example

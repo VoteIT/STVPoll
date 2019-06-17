@@ -105,6 +105,7 @@ class ElectionRound(object):
         # type: (int) -> None
         self._id = _id
         self.selected = []
+        self.votes = []
 
     def status_display(self):
         # type: () -> basestring
