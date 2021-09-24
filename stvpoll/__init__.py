@@ -17,10 +17,10 @@ from stvpoll.exceptions import IncompleteResult
 from stvpoll.exceptions import STVException
 
 
-def _minmax(iterable, key=None, lowest=False):
-    if lowest:
-        return min(iterable, key=key)
-    return max(iterable, key=key)
+def _minmax(iterable, key=None, high=True):
+    if high:
+        return max(iterable, key=key)
+    return min(iterable, key=key)
 
 
 class PreferenceBallot(object):
@@ -257,7 +257,7 @@ class STVPollBase(object):
         # type: (bool, List(Candidate)) -> (Candidate, int)
         if sample is None:
             sample = self.standing_candidates
-        candidate = _minmax(sample, key=lambda c: c.votes, lowest=not most_votes)
+        candidate = _minmax(sample, key=lambda c: c.votes, high=most_votes)
         ties = self.get_ties(candidate)
         if ties:
             return self.resolve_tie(ties, most_votes)
@@ -273,7 +273,7 @@ class STVPollBase(object):
         # type: (List[Candidate], bool) -> (Candidate, int)
         for stage in self.result.transfer_log[::-1]:
             stage_votes = [v for v in stage['current_votes'] if v in candidates]
-            primary_candidate = _minmax(stage_votes, key=lambda c: c.votes, lowest=not most_votes)
+            primary_candidate = _minmax(stage_votes, key=lambda c: c.votes, high=most_votes)
             ties = self.get_ties(primary_candidate, stage_votes)
             if ties:
                 candidates = [c for c in candidates if c in ties]
