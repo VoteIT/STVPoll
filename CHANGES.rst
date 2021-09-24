@@ -2,6 +2,13 @@ Changes
 =======
 
 
+0.2.3 (dev)
+-----------
+
+- Fixed bug where votes were discarded in select_multiple.
+- Scottish STV: Select proposals in order of most votes, when there is no more competition.
+
+
 0.2.2 (dev)
 -----------
 

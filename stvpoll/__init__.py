@@ -18,8 +18,9 @@ from stvpoll.exceptions import STVException
 
 
 def _minmax(iterable, key=None, lowest=False):
-    method = lowest and min or max
-    return method(iterable, key=key)
+    if lowest:
+        return min(iterable, key=key)
+    return max(iterable, key=key)
 
 
 class PreferenceBallot(object):
@@ -344,12 +345,16 @@ class STVPollBase(object):
     def select(self, candidate, method, status=Candidate.ELECTED):
         # type: (Candidate, int, int) -> None
         self.result.new_round()
-        self.result.select(candidate, self.standing_candidates, method, status)
+        self.result.select(
+            candidate, self.current_votes,
+            method, status
+        )
 
     def select_multiple(self, candidates, method, status=Candidate.ELECTED, resolve_ties=False):
         # type: (List[Candidate], int, int) -> None
         if candidates:
             self.result.new_round()
+            votes = self.current_votes         # Copy vote data before multiple selection
             while candidates:
                 # Select candidates in order. If requested, resolve ties.
                 index = 0
@@ -357,13 +362,14 @@ class STVPollBase(object):
                 if resolve_ties:
                     candidate, _method = self.get_candidate(
                         most_votes=status == Candidate.ELECTED,
-                        sample=candidates)
+                        sample=candidates
+                    )
                     index = candidates.index(candidate)
 
                 self.result.select(
-                    candidates.pop(index),
-                    self.standing_candidates,
-                    _method, status)
+                    candidates.pop(index), votes,
+                    _method, status
+                )
 
     def calculate(self):
         # type: () -> ElectionResult

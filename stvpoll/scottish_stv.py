@@ -17,7 +17,7 @@ class ScottishSTV(STVPollBase):
     @staticmethod
     def round(value):
         # type: (Decimal) -> Decimal
-        return value.quantize(Decimal('.00001'))
+        return round(value, 5)
 
     def calculate_round(self):
         # type: () -> None
@@ -28,7 +28,8 @@ class ScottishSTV(STVPollBase):
             self.select_multiple(
                 winners,
                 ElectionRound.SELECTION_METHOD_DIRECT,
-                resolve_ties=True)
+                resolve_ties=True,
+            )
 
         # If there there are winner votes to transfer, then do that.
         transfers = [c for c in self.result.elected if not c.votes_transferred]
@@ -40,7 +41,11 @@ class ScottishSTV(STVPollBase):
 
         # In case of vote exhaustion, this is theoretically possible.
         elif self.seats_to_fill == len(self.standing_candidates):
-            self.select_multiple(self.standing_candidates, ElectionRound.SELECTION_METHOD_NO_COMPETITION)
+            self.select_multiple(
+                self.standing_candidates,
+                ElectionRound.SELECTION_METHOD_NO_COMPETITION,
+                resolve_ties=True,
+            )
 
         # Else exclude a candidate
         else:
