@@ -1,20 +1,26 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import random
 from collections import Counter
 from copy import deepcopy
 from decimal import Decimal
 from random import choice
 from time import time
 
-from typing import Callable
-from typing import Iterable
-from typing import List
+from typing import (
+    Callable,
+    Iterable,
+    List,
+    Union,
+)
 
-from stvpoll.exceptions import BallotException
-from stvpoll.exceptions import CandidateDoesNotExist
-from stvpoll.exceptions import IncompleteResult
-from stvpoll.exceptions import STVException
+from stvpoll.exceptions import (
+    BallotException,
+    CandidateDoesNotExist,
+    IncompleteResult,
+    STVException,
+)
 
 
 def _minmax(iterable, key=None, high=True):
@@ -113,8 +119,11 @@ class ElectionRound(object):
         return self.status == Candidate.ELECTED and 'Elected' or 'Excluded'
 
     def select(self, candidate, votes, method, status):
-        # type: (Candidate, List[Candidate], int, int) -> None
-        self.selected.append(candidate)
+        # type: (Union[Candidate, List[Candidate]], List[Candidate], int, int) -> None
+        if isinstance(candidate, list):
+            self.selected += candidate
+        else:
+            self.selected.append(candidate)
         self.status = status
         self.votes = deepcopy(votes)
         self.selection_method = method
@@ -173,11 +182,19 @@ class ElectionResult(object):
         # type: () -> ElectionRound
         return self.rounds[-1]
 
-    def select(self, candidate, votes, method, status=Candidate.ELECTED):
-        # type: (Candidate, List[Candidate], int, int) -> None
+    def _set_candidate_status(self, candidate, status):
+        # type: (Candidate, int) -> None
         candidate.status = status
         if status == Candidate.ELECTED:
             self.elected.append(candidate)
+
+    def select(self, candidate, votes, method, status=Candidate.ELECTED):
+        # type: (Union[Candidate, List[Candidate]], List[Candidate], int, int) -> None
+        if isinstance(candidate, list):
+            for c in candidate:
+                self._set_candidate_status(c, status)
+        else:
+            self._set_candidate_status(candidate, status)
         self.current_round.select(candidate, votes, method, status)
 
     @property
@@ -210,14 +227,16 @@ class ElectionResult(object):
 class STVPollBase(object):
     _quota = None
 
-    def __init__(self, seats, candidates, quota=None, random_in_tiebreaks=True):
-        # type: (int, Iterable, Callable, bool) -> None
+    def __init__(self, seats, candidates, quota=None, random_in_tiebreaks=True, pedantic_order=False):
+        # type: (int, Iterable, Callable[[STVPollBase], int], bool, bool) -> None
         self.candidates = [Candidate(c) for c in candidates]
+        random.shuffle(self.candidates)
         self.ballots = []
         self._quota_function = quota
         self.seats = seats
         self.errors = []
         self.random_in_tiebreaks = random_in_tiebreaks
+        self.pedantic_order = pedantic_order
         self.result = ElectionResult(self)
         if len(self.candidates) < self.seats:
             raise STVException('Not enough candidates to fill seats')
@@ -254,7 +273,7 @@ class STVPollBase(object):
             self.result.empty_ballot_count += num
 
     def get_candidate(self, most_votes=True, sample=None):
-        # type: (bool, List(Candidate)) -> (Candidate, int)
+        # type: (bool, List[Candidate]) -> (Candidate, int)
         if sample is None:
             sample = self.standing_candidates
         candidate = _minmax(sample, key=lambda c: c.votes, high=most_votes)
@@ -350,25 +369,29 @@ class STVPollBase(object):
             method, status
         )
 
-    def select_multiple(self, candidates, method, status=Candidate.ELECTED, resolve_ties=False):
+    def select_multiple(self, candidates, method, status=Candidate.ELECTED):
         # type: (List[Candidate], int, int) -> None
         if candidates:
             self.result.new_round()
             votes = self.current_votes         # Copy vote data before multiple selection
-            while candidates:
-                # Select candidates in order. If requested, resolve ties.
-                index = 0
-                _method = method
-                if resolve_ties:
-                    candidate, _method = self.get_candidate(
+            if self.pedantic_order:
+                # Select candidates in order, resolving ties.
+                while candidates:
+                    candidate, method = self.get_candidate(
                         most_votes=status == Candidate.ELECTED,
                         sample=candidates
                     )
                     index = candidates.index(candidate)
 
+                    self.result.select(
+                        candidates.pop(index), votes,
+                        method, status
+                    )
+            else:
+                # Select candidates in order, not bothering with ties.
                 self.result.select(
-                    candidates.pop(index), votes,
-                    _method, status
+                    sorted(candidates, key=lambda c: c.votes, reverse=True),
+                    votes, method, status
                 )
 
     def calculate(self):

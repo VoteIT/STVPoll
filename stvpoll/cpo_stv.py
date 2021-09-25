@@ -70,6 +70,7 @@ class CPOComparisonResult:
 class CPO_STV(STVPollBase):
 
     def __init__(self, quota=hagenbach_bischof_quota, *args, **kwargs):
+        kwargs['pedantic_order'] = False
         super(CPO_STV, self).__init__(*args, quota=quota, **kwargs)
 
     @staticmethod

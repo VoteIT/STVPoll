@@ -2,6 +2,12 @@ Changes
 =======
 
 
+0.3.0 (dev)
+-----------
+
+- Introduce *pedantic_order=False*, to avoid incomplete results when randomization can not affect who is elected.
+
+
 0.2.3 (dev)
 -----------
 

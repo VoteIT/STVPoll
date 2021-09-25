@@ -240,12 +240,20 @@ class ScottishSTVTests(unittest.TestCase):
             obj.add_ballot(['one', 'four'])
 
     def test_randomization_disabled(self):
-        poll = self._cut(seats=2, candidates=['one', 'two', 'three'], random_in_tiebreaks=False)
+        poll = self._cut(seats=2, candidates=['one', 'two', 'three'], random_in_tiebreaks=False, pedantic_order=True)
         poll.add_ballot(['one', 'two'], 2)
         poll.add_ballot(['two', 'one'], 2)
         poll.add_ballot(['three'], 1)
         result = poll.calculate()
         self.assertEqual(result.complete, not isinstance(poll, ScottishSTV))
+
+    def test_pedantic_order(self):
+        poll = self._cut(seats=2, candidates=['one', 'two', 'three'], random_in_tiebreaks=False)
+        poll.add_ballot(['one', 'two'], 2)
+        poll.add_ballot(['two', 'one'], 2)
+        poll.add_ballot(['three'], 1)
+        result = poll.calculate()
+        self.assertEqual(result.complete, True)
 
     def test_bad_config(self):
         from stvpoll.exceptions import STVException
@@ -262,7 +270,7 @@ class CPOSTVTests(ScottishSTVTests):
     def test_all_wins(self):
         poll = self._cut(seats=2, candidates=['one', 'two'])
         poll.calculate()
-        self.assertTrue(poll.complete)
+        self.assertIs(poll.complete, True)
 
     def test_possible_combinations(self):
         self.assertEqual(CPO_STV.possible_combinations(5, 2), 10)

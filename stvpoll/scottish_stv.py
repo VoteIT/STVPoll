@@ -11,8 +11,8 @@ from stvpoll.quotas import droop_quota
 
 class ScottishSTV(STVPollBase):
 
-    def __init__(self, seats, candidates, quota=droop_quota, random_in_tiebreaks=True):
-        super(ScottishSTV, self).__init__(seats, candidates, quota, random_in_tiebreaks)
+    def __init__(self, seats, candidates, quota=droop_quota, random_in_tiebreaks=True, pedantic_order=False):
+        super(ScottishSTV, self).__init__(seats, candidates, quota, random_in_tiebreaks, pedantic_order)
 
     @staticmethod
     def round(value):
@@ -28,7 +28,6 @@ class ScottishSTV(STVPollBase):
             self.select_multiple(
                 winners,
                 ElectionRound.SELECTION_METHOD_DIRECT,
-                resolve_ties=True,
             )
 
         # If there there are winner votes to transfer, then do that.
@@ -44,7 +43,6 @@ class ScottishSTV(STVPollBase):
             self.select_multiple(
                 self.standing_candidates,
                 ElectionRound.SELECTION_METHOD_NO_COMPETITION,
-                resolve_ties=True,
             )
 
         # Else exclude a candidate
