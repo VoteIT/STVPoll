@@ -45,11 +45,6 @@ class PreferenceBallot(list[Candidate]):
     def get_next_preference(self, sample: Candidates) -> Candidate | None:
         return next((p for p in self if p in sample), None)
 
-    def get_transfer_preference(self, standing_candidates: Candidates) -> Candidate:
-        for candidate in self:
-            if candidate in standing_candidates:
-                return candidate
-
 
 @dataclass
 class ElectionRound:
@@ -161,9 +156,9 @@ class STVPollBase:
         self.result = ElectionResult(self)
         if len(self.candidates) < self.seats:
             raise STVException("Not enough candidates to fill seats")
-        self.tiebreakers = [TiebreakHistory(tuple(candidates))]
+        self.tiebreakers = [TiebreakHistory()]
         if random_in_tiebreaks:
-            self.tiebreakers.append(TiebreakRandom(tuple(candidates)))
+            self.tiebreakers.append(TiebreakRandom(candidates))
 
     @staticmethod
     def round(value: Decimal) -> Decimal:
@@ -224,7 +219,7 @@ class STVPollBase:
             # Candidate is next in line among standing candidates
             if _from == ballot.get_next_preference(standing + (_from,)):
                 ballot.decrease_value(transfer_quota, self.round)
-                target_candidate = ballot.get_transfer_preference(standing)
+                target_candidate = ballot.get_next_preference(standing)
                 if target_candidate:
                     # target_candidate.votes += ballot.value
                     transfers[(_from, target_candidate)] += ballot.value

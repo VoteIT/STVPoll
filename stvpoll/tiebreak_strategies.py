@@ -9,9 +9,6 @@ class TiebreakStrategy(Protocol):
     method: int
     name: str
 
-    def __init__(self, candidates: Candidates) -> None:
-        ...
-
     def resolve(
         self, candidates: Candidates, history: Rounds, lowest: bool = False
     ) -> Candidates | Candidate:
@@ -54,10 +51,6 @@ class TiebreakRandom:
 class TiebreakHistory:
     method: int = 1
     name = "history"
-    used: bool = False
-
-    def __init__(self, candidates: Candidates):
-        ...
 
     def resolve(
         self,

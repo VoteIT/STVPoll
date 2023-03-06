@@ -392,7 +392,7 @@ class TiebreakTests(unittest.TestCase):
     def test_history(self):
         from .tiebreak_strategies import TiebreakHistory
 
-        strategy = TiebreakHistory(())
+        strategy = TiebreakHistory()
         self.assertEqual(
             strategy.resolve((2, 3), ({2: Decimal(1), 3: Decimal(1)},)),
             (2, 3),
