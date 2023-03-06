@@ -1,19 +1,17 @@
 from decimal import Decimal
 from math import floor
 
-from stvpoll.abcs import STVPollBase
-
 
 # Used in CPO STV
-def hagenbach_bischof_quota(poll: STVPollBase) -> int:
-    return int(floor(Decimal(poll.ballot_count) / (poll.seats + 1)))
+def hagenbach_bischof_quota(ballot_count: int, winners: int) -> int:
+    return int(floor(Decimal(ballot_count) / (winners + 1)))
 
 
 # Used in Scottish STV
-def droop_quota(poll: STVPollBase) -> int:
-    return hagenbach_bischof_quota(poll) + 1
+def droop_quota(ballot_count: int, winners: int) -> int:
+    return hagenbach_bischof_quota(ballot_count, winners) + 1
 
 
 # Not used at this time
-def hare_quota(poll: STVPollBase) -> int:  # pragma: no coverage
-    return int(floor(Decimal(poll.ballot_count) / poll.seats))
+def hare_quota(ballot_count: int, winners: int) -> int:  # pragma: no coverage
+    return int(floor(Decimal(ballot_count) / winners))

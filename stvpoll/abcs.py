@@ -4,6 +4,7 @@ import random
 from collections import Counter
 from copy import deepcopy
 from decimal import Decimal
+from functools import cached_property
 from random import choice
 from time import time
 
@@ -215,13 +216,11 @@ class ElectionResult:
 
 
 class Quota(Protocol):
-    def __call__(self, poll: STVPollBase) -> int:
+    def __call__(self, ballot_count: int, winners: int) -> int:
         ...
 
 
 class STVPollBase:
-    _quota: int | None = None
-
     def __init__(
         self,
         seats: int,
@@ -248,11 +247,9 @@ class STVPollBase:
                 return candidate
         raise CandidateDoesNotExist
 
-    @property
+    @cached_property
     def quota(self) -> int:
-        if not self._quota:
-            self._quota = self._quota_function(self)
-        return self._quota
+        return self._quota_function(self.ballot_count, self.seats)
 
     @property
     def ballot_count(self) -> int:
