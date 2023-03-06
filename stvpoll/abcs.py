@@ -174,8 +174,9 @@ class STVPollBase:
     def ballot_count(self) -> int:
         return sum(b.count for b in self.ballots)
 
-    def add_ballot(self, ballot: Candidates, num: int = 1):
+    def add_ballot(self, ballot: Iterable[Candidate], num: int = 1):
         """Empty votes will not affect quota, but will be accounted for in result."""
+        ballot = tuple(ballot)
         if set(ballot).difference(self.candidates):
             raise CandidateDoesNotExist
         if ballot:

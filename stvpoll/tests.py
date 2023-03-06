@@ -213,10 +213,12 @@ class ScottishSTVTests(unittest.TestCase):
 
     def test_tiebreak_randomized(self):
         obj = _CPO_extreme_tie_fixture(self._cut)
+        random.seed(2)
         result = obj.calculate()
         self.assertEqual(result.as_dict()["randomized"], True)
         self.assertEqual(result.as_dict()["complete"], True)
         self.assertEqual(result.as_dict()["empty_ballot_count"], 0)
+        self.assertEqual(result.elected_as_tuple(), ("Gorm", "Andrea"))
 
     def test_scottish_tiebreak_history(self):
         obj = _scottish_tiebreak_history_fixture(self._cut)
@@ -420,6 +422,16 @@ class TiebreakTests(unittest.TestCase):
             2,
             "Multiple history rounds",
         )
+
+
+class RecalculateTests(unittest.TestCase):
+    def test_recalculate(self):
+        from .utils import recalculate_result
+
+        poll = _CPO_extreme_tie_fixture(ScottishSTV)
+        random.seed(2)
+        result = recalculate_result(poll, ("Gorm", "Robin", "Andrea", "Batman"))
+        self.assertEqual(result.elected_as_tuple(), ("Gorm", "Robin"))
 
 
 if __name__ == "__main__":
