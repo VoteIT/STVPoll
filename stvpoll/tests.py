@@ -117,7 +117,7 @@ def _scottish_tiebreak_history_fixture(factory):
         (("Gorm", "Robin"), 1),
         ((), 3),
     )
-    obj = factory(seats=1, candidates=example_candidates, quota=lambda x: 100)
+    obj = factory(seats=1, candidates=example_candidates, quota=lambda x, y: 100)
     for b in example_ballots:
         obj.add_ballot(*b)
     return obj
