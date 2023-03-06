@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
+from __future__ import annotations
 
 from decimal import Decimal
 
@@ -15,13 +14,10 @@ class ScottishSTV(STVPollBase):
         super(ScottishSTV, self).__init__(seats, candidates, quota, random_in_tiebreaks, pedantic_order)
 
     @staticmethod
-    def round(value):
-        # type: (Decimal) -> Decimal
+    def round(value: Decimal) -> Decimal:
         return round(value, 5)
 
-    def calculate_round(self):
-        # type: () -> None
-
+    def calculate_round(self) -> None:
         # First, declare winners if any are over quota
         winners = [c for c in self.standing_candidates if c.votes >= self.quota]
         if winners:
@@ -30,7 +26,7 @@ class ScottishSTV(STVPollBase):
                 ElectionRound.SELECTION_METHOD_DIRECT,
             )
 
-        # If there there are winner votes to transfer, then do that.
+        # If there are winner votes to transfer, then do that.
         transfers = [c for c in self.result.elected if not c.votes_transferred]
         if transfers:
             # Select candidates in order. Resolve ties.
