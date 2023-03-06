@@ -8,10 +8,7 @@ from random import choice
 from time import time
 
 from typing import (
-    Callable,
     Iterable,
-    List,
-    Union,
     Protocol,
 )
 

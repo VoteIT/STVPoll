@@ -9,9 +9,17 @@ from stvpoll.quotas import droop_quota
 
 
 class ScottishSTV(STVPollBase):
-
-    def __init__(self, seats, candidates, quota=droop_quota, random_in_tiebreaks=True, pedantic_order=False):
-        super(ScottishSTV, self).__init__(seats, candidates, quota, random_in_tiebreaks, pedantic_order)
+    def __init__(
+        self,
+        seats,
+        candidates,
+        quota=droop_quota,
+        random_in_tiebreaks=True,
+        pedantic_order=False,
+    ):
+        super(ScottishSTV, self).__init__(
+            seats, candidates, quota, random_in_tiebreaks, pedantic_order
+        )
 
     @staticmethod
     def round(value: Decimal) -> Decimal:
@@ -31,7 +39,9 @@ class ScottishSTV(STVPollBase):
         if transfers:
             # Select candidates in order. Resolve ties.
             candidate, _method = self.get_candidate(sample=transfers)
-            transfer_quota = ScottishSTV.round((candidate.votes - self.quota) / candidate.votes)
+            transfer_quota = ScottishSTV.round(
+                (candidate.votes - self.quota) / candidate.votes
+            )
             self.transfer_votes(candidate, transfer_quota=transfer_quota)
 
         # In case of vote exhaustion, this is theoretically possible.
