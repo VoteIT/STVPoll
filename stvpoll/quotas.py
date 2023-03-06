@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 from decimal import Decimal
 from math import floor
 
-from stvpoll import STVPollBase
+from stvpoll.abcs import STVPollBase
 
 
 # Used in CPO STV

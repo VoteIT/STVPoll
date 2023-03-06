@@ -8,9 +8,9 @@ from math import factorial
 from typing import Iterable
 from typing import List
 
-from stvpoll import Candidate
-from stvpoll import ElectionRound
-from stvpoll import STVPollBase
+from stvpoll.abcs import Candidate
+from stvpoll.abcs import ElectionRound
+from stvpoll.abcs import STVPollBase
 from stvpoll.quotas import hagenbach_bischof_quota
 
 

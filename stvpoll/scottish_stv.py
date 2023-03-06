@@ -3,9 +3,9 @@ from __future__ import unicode_literals
 
 from decimal import Decimal
 
-from stvpoll import STVPollBase
-from stvpoll import Candidate
-from stvpoll import ElectionRound
+from stvpoll.abcs import STVPollBase
+from stvpoll.abcs import Candidate
+from stvpoll.abcs import ElectionRound
 from stvpoll.quotas import droop_quota
 
 

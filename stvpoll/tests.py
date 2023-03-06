@@ -6,7 +6,7 @@ import os
 import json
 from codecs import open
 
-from stvpoll import STVPollBase
+from stvpoll.abcs import STVPollBase
 from stvpoll.scottish_stv import ScottishSTV
 from stvpoll.cpo_stv import CPO_STV
 from typing import Type
