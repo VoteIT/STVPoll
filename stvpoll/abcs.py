@@ -22,12 +22,6 @@ from stvpoll.tiebreak_strategies import (
 from stvpoll.types import Quota
 
 
-def _minmax(iterable, key=None, high=True):
-    if high:
-        return max(iterable, key=key)
-    return min(iterable, key=key)
-
-
 class PreferenceBallot:
     def __init__(self, preferences: list[Candidate], count: int) -> None:
         self.preferences = preferences
@@ -279,7 +273,8 @@ class STVPollBase:
     ) -> tuple[Candidate, int]:
         if sample is None:
             sample = self.standing_candidates
-        candidate = _minmax(sample, key=lambda c: c.votes, high=most_votes)
+        minmax = max if most_votes else min
+        candidate = minmax(sample, key=lambda c: c.votes)
         ties = self.get_ties(candidate)
         if ties:
             return self.resolve_tie(ties, most_votes)
