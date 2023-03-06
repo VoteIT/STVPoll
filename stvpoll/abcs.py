@@ -36,11 +36,13 @@ class PreferenceBallot(list[Candidate]):
         self.multiplier = Decimal(1)
 
     @property
-    def value(self):
+    def value(self) -> Decimal:
         return self.multiplier * self.count
 
-    def decrease_value(self, multiplier: Decimal, round: Callable[[Decimal], Decimal]):
-        self.multiplier = round(self.multiplier * multiplier)
+    def decrease_value(
+        self, multiplier: Decimal, _round: Callable[[Decimal], Decimal]
+    ) -> None:
+        self.multiplier = _round(self.multiplier * multiplier)
 
     def get_next_preference(self, sample: Candidates) -> Candidate | None:
         return next((p for p in self if p in sample), None)
