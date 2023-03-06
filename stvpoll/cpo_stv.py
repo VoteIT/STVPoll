@@ -3,13 +3,14 @@ from __future__ import annotations
 from decimal import Decimal
 from itertools import combinations
 from math import factorial
+import random
 
 from typing import Iterable
-from typing import List
 
 from stvpoll.abcs import Candidate, Quota
 from stvpoll.abcs import ElectionRound
 from stvpoll.abcs import STVPollBase
+from stvpoll.exceptions import IncompleteResult
 from stvpoll.quotas import hagenbach_bischof_quota
 
 
@@ -82,6 +83,7 @@ class CPOComparisonResult:
 
 class CPO_STV(STVPollBase):
     def __init__(self, quota=hagenbach_bischof_quota, *args, **kwargs):
+        self.random_in_tiebreaks = kwargs.get("random_in_tiebreaks", True)
         kwargs["pedantic_order"] = False
         super(CPO_STV, self).__init__(*args, quota=quota, **kwargs)
 
@@ -157,13 +159,16 @@ class CPO_STV(STVPollBase):
             biggest_defeats[candidates] = max(d.difference for d in ds)
         minimal_defeat = min(biggest_defeats.values())
         equals = [
-            defeat[0]
-            for defeat in biggest_defeats.items()
-            if defeat[1] == minimal_defeat
+            candidates
+            for candidates, diff in biggest_defeats.items()
+            if diff == minimal_defeat
         ]
-        if len(equals) > 1:
-            return self.choice(equals)
-        return equals[0]  # pragma: no cover
+        if len(equals) == 1:  # pragma: no cover
+            return equals[0]
+        if not self.random_in_tiebreaks:
+            raise IncompleteResult("Random in tiebreaks disallowed")
+        self.result.randomized = True
+        return random.choice(equals)
 
     # def resolve_tie_ranked_pairs(self, duels):
     #     # type: (List[CPOComparisonResult]) -> List[Candidate]

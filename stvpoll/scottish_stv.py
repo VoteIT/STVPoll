@@ -21,10 +21,6 @@ class ScottishSTV(STVPollBase):
             seats, candidates, quota, random_in_tiebreaks, pedantic_order
         )
 
-    @staticmethod
-    def round(value: Decimal) -> Decimal:
-        return round(value, 5)
-
     def calculate_round(self) -> None:
         # First, declare winners if any are over quota
         winners = [c for c in self.standing_candidates if c.votes >= self.quota]
@@ -39,7 +35,7 @@ class ScottishSTV(STVPollBase):
         if transfers:
             # Select candidates in order. Resolve ties.
             candidate, _method = self.get_candidate(sample=transfers)
-            transfer_quota = ScottishSTV.round(
+            transfer_quota = self.round(
                 (candidate.votes - self.quota) / candidate.votes
             )
             self.transfer_votes(candidate, transfer_quota=transfer_quota)

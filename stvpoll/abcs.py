@@ -5,19 +5,21 @@ from collections import Counter
 from copy import deepcopy
 from decimal import Decimal
 from functools import cached_property
-from random import choice
 from time import time
 
-from typing import (
-    Iterable,
-    Protocol,
-)
+from typing import Iterable, Callable
 
 from stvpoll.exceptions import (
     CandidateDoesNotExist,
     IncompleteResult,
     STVException,
 )
+from stvpoll.tiebreak_strategies import (
+    TiebreakStrategy,
+    TiebreakHistory,
+    TiebreakRandom,
+)
+from stvpoll.types import Quota
 
 
 def _minmax(iterable, key=None, high=True):
@@ -36,8 +38,8 @@ class PreferenceBallot:
     def value(self):
         return self.multiplier * self.count
 
-    def decrease_value(self, multiplier):
-        self.multiplier *= multiplier
+    def decrease_value(self, multiplier: Decimal, round: Callable[[Decimal], Decimal]):
+        self.multiplier = round(self.multiplier * multiplier)
 
     @property
     def current_preference(self) -> Candidate | None:
@@ -203,7 +205,7 @@ class ElectionResult:
         return set(self.elected_as_tuple())
 
     def as_dict(self) -> dict:
-        return {
+        result = {
             "winners": self.elected_as_tuple(),
             "candidates": tuple([c.obj for c in self.poll.candidates]),
             "complete": self.complete,
@@ -213,14 +215,14 @@ class ElectionResult:
             "runtime": self.runtime,
             "empty_ballot_count": self.empty_ballot_count,
         }
-
-
-class Quota(Protocol):
-    def __call__(self, ballot_count: int, winners: int) -> int:
-        ...
+        for strat in self.poll.tiebreakers:
+            result.update(strat.get_result_dict())
+        return result
 
 
 class STVPollBase:
+    tiebreakers: list[TiebreakStrategy]
+
     def __init__(
         self,
         seats: int,
@@ -235,11 +237,13 @@ class STVPollBase:
         self._quota_function = quota
         self.seats = seats
         self.errors = []
-        self.random_in_tiebreaks = random_in_tiebreaks
         self.pedantic_order = pedantic_order
         self.result = ElectionResult(self)
         if len(self.candidates) < self.seats:
             raise STVException("Not enough candidates to fill seats")
+        self.tiebreakers = [TiebreakHistory(tuple(candidates))]
+        if random_in_tiebreaks:
+            self.tiebreakers.append(TiebreakRandom(tuple(candidates)))
 
     def get_existing_candidate(self, obj) -> Candidate:
         for candidate in self.candidates:
@@ -247,13 +251,17 @@ class STVPollBase:
                 return candidate
         raise CandidateDoesNotExist
 
+    @staticmethod
+    def round(value: Decimal) -> Decimal:
+        return round(value, 5).normalize()
+
     @cached_property
     def quota(self) -> int:
         return self._quota_function(self.ballot_count, self.seats)
 
     @property
     def ballot_count(self) -> int:
-        return sum([b.count for b in self.ballots])
+        return sum(b.count for b in self.ballots)
 
     def add_ballot(self, ballot: list, num: int = 1):
         candidates = []
@@ -277,29 +285,22 @@ class STVPollBase:
             return self.resolve_tie(ties, most_votes)
         return candidate, ElectionRound.SELECTION_METHOD_DIRECT
 
-    def choice(self, candidates):
-        if self.random_in_tiebreaks:
-            self.result.randomized = True
-            return choice(candidates)
-        raise IncompleteResult("Unresolved tiebreak (random disallowed)")
-
     def resolve_tie(
         self, candidates: list[Candidate], most_votes: bool = True
     ) -> tuple[Candidate, int]:
-        for stage in self.result.transfer_log[::-1]:
-            stage_votes = [v for v in stage["current_votes"] if v in candidates]
-            primary_candidate = _minmax(
-                stage_votes, key=lambda c: c.votes, high=most_votes
-            )
-            ties = self.get_ties(primary_candidate, stage_votes)
-            if ties:
-                candidates = [c for c in candidates if c in ties]
-            else:
-                winner = candidates[
-                    candidates.index(primary_candidate)
-                ]  # Get correct Candidate instance
-                return winner, ElectionRound.SELECTION_METHOD_HISTORY
-        return self.choice(candidates), ElectionRound.SELECTION_METHOD_RANDOM
+        tied = tuple(c.obj for c in candidates)
+        history = tuple(
+            {c.obj: c.votes for c in r.votes} for r in self.result.rounds if r.votes
+        )
+        for strategy in self.tiebreakers:
+            resolved = strategy.resolve(tied, history, lowest=not most_votes)
+            if resolved is None:
+                continue
+            if isinstance(resolved, tuple):
+                tied = resolved
+                continue
+            return self.get_existing_candidate(resolved), strategy.method
+        raise IncompleteResult("Unresolved tiebreak (random disallowed)")
 
     def transfer_votes(
         self, candidate: Candidate, transfer_quota: Decimal = Decimal(1)
@@ -307,7 +308,7 @@ class STVPollBase:
         transfers = Counter()
         for ballot in self.ballots:
             if candidate == ballot.current_preference:
-                ballot.decrease_value(transfer_quota)
+                ballot.decrease_value(transfer_quota, self.round)
                 target_candidate = ballot.get_transfer_preference(
                     self.standing_candidates
                 )

@@ -13,7 +13,7 @@ from stvpoll.cpo_stv import CPO_STV
 from typing import Type
 
 
-def _opa_example_fixture(factory):
+def _opa_example_fixture(factory: Type[STVPollBase]) -> STVPollBase:
     """
     28 voters ranked Alice first, Bob second, and Chris third
     26 voters ranked Bob first, Alice second, and Chris third
@@ -30,7 +30,7 @@ def _opa_example_fixture(factory):
     return obj
 
 
-def _wikipedia_example_fixture(factory):
+def _wikipedia_example_fixture(factory: Type[STVPollBase]) -> STVPollBase:
     """
     Example from https://en.wikipedia.org/wiki/Single_transferable_vote
     """
@@ -68,7 +68,7 @@ def _wikipedia_example_fixture(factory):
     return obj
 
 
-def _wikipedia_cpo_example_fixture(factory):
+def _wikipedia_cpo_example_fixture(factory: Type[STVPollBase]) -> STVPollBase:
     """
     Example from https://en.wikipedia.org/wiki/CPO-STV
     """
@@ -87,8 +87,7 @@ def _wikipedia_cpo_example_fixture(factory):
     return obj
 
 
-def _CPO_extreme_tie_fixture(factory):
-    # type: (Type[STVPollBase]) -> STVPollBase
+def _CPO_extreme_tie_fixture(factory: Type[STVPollBase]) -> STVPollBase:
     """
     Example from https://en.wikipedia.org/wiki/CPO-STV
     """
@@ -105,8 +104,7 @@ def _CPO_extreme_tie_fixture(factory):
     return obj
 
 
-def _scottish_tiebreak_history_fixture(factory):
-    # type: (Type[STVPollBase]) -> STVPollBase
+def _scottish_tiebreak_history_fixture(factory: Type[STVPollBase]) -> STVPollBase:
     """
     Example from https://en.wikipedia.org/wiki/CPO-STV
     """
@@ -123,8 +121,7 @@ def _scottish_tiebreak_history_fixture(factory):
     return obj
 
 
-def _incomplete_result_fixture(factory):
-    # type: (Type[STVPollBase]) -> STVPollBase
+def _incomplete_result_fixture(factory: Type[STVPollBase]) -> STVPollBase:
     """
     Example from https://en.wikipedia.org/wiki/CPO-STV
     """
@@ -139,7 +136,9 @@ def _incomplete_result_fixture(factory):
     return obj
 
 
-def _big_fixture(factory, candidates, seats):
+def _big_fixture(
+    factory: Type[STVPollBase], candidates: int, seats: int
+) -> STVPollBase:
     with open("stvpoll/testdata/70 in 35.json") as infile:
         votedata = json.load(infile)
     obj = factory(candidates=votedata["candidates"][:candidates], seats=seats)
@@ -148,7 +147,7 @@ def _big_fixture(factory, candidates, seats):
     return obj
 
 
-def _tie_break_that_breaks(factory):
+def _tie_break_that_breaks(factory: Type[STVPollBase]) -> STVPollBase:
     example_candidates = ["A", "B", "C", "D", "E", "F"]
     example_ballots = (
         (["A", "D", "C"], 1),
@@ -191,8 +190,7 @@ class ScottishSTVTests(unittest.TestCase):
     wiki_cpo_results = {"Carter", "Scott", "Andrea"}
 
     @property
-    def _cut(self):
-        # type: () -> Type[ScottishSTV]
+    def _cut(self) -> Type[ScottishSTV]:
         return ScottishSTV
 
     def test_opa_example(self):
@@ -297,6 +295,18 @@ class ScottishSTVTests(unittest.TestCase):
             STVException, self._cut, seats=4, candidates=["one", "two", "three"]
         )
 
+    def test_big(self):
+        random.seed(1)
+        if not self._cut is ScottishSTV:
+            self.skipTest("Only in scottland :)")
+        poll = _big_fixture(self._cut, candidates=70, seats=34)
+        result = poll.calculate()
+        self.assertIs(result.as_dict()["complete"], True)
+        self.assertEqual(
+            next(iter(result.as_dict()["rounds"][-1]["vote_count"][0].values())),
+            Decimal("2.53572"),
+        )
+
 
 class CPOSTVTests(ScottishSTVTests):
     wiki_cpo_results = {"Carter", "Andrea", "Delilah"}
@@ -336,8 +346,7 @@ class ScottishElectionTests(unittest.TestCase):
     )
 
     @property
-    def _cut(self):
-        # type: () -> Type[STVPollBase]
+    def _cut(self) -> Type[STVPollBase]:
         return ScottishSTV
 
     def test_all(self):
@@ -373,7 +382,7 @@ class TiebreakTests(unittest.TestCase):
 
         random.seed(42)
         strategy = TiebreakRandom((1, 2, 3))
-        self.assertEqual(strategy.get_result_dict(), {"randomized": False})
+        self.assertEqual(strategy.get_result_dict(), {})
         self.assertEqual(strategy.resolve((2, 3), ()), 3)
         self.assertEqual(strategy.resolve((2, 3), (), lowest=True), 2)
         self.assertEqual(
@@ -386,7 +395,7 @@ class TiebreakTests(unittest.TestCase):
         strategy = TiebreakHistory(())
         self.assertEqual(
             strategy.resolve((2, 3), ({2: Decimal(1), 3: Decimal(1)},)),
-            None,
+            (2, 3),
             "All tied up",
         )
         self.assertEqual(
@@ -411,13 +420,6 @@ class TiebreakTests(unittest.TestCase):
             2,
             "Multiple history rounds",
         )
-
-
-# class CPOElectionTests(ScottishElectionTests):
-#
-#     @property
-#     def _cut(self):
-#         return CPO_STV
 
 
 if __name__ == "__main__":
