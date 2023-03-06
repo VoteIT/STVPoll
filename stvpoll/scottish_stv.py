@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from decimal import Decimal
-
 from stvpoll.abcs import STVPollBase
-from stvpoll.abcs import Candidate
-from stvpoll.abcs import ElectionRound
 from stvpoll.quotas import droop_quota
+from stvpoll.types import SelectionMethod, CandidateStatus
 
 
 class ScottishSTV(STVPollBase):
@@ -23,32 +20,31 @@ class ScottishSTV(STVPollBase):
 
     def calculate_round(self) -> None:
         # First, declare winners if any are over quota
-        winners = [c for c in self.standing_candidates if c.votes >= self.quota]
+        winners = tuple(
+            c for c in self.standing_candidates if self.current_votes[c] >= self.quota
+        )
         if winners:
             self.select_multiple(
                 winners,
-                ElectionRound.SELECTION_METHOD_DIRECT,
+                SelectionMethod.Direct,
             )
 
-        # If there are winner votes to transfer, then do that.
-        transfers = [c for c in self.result.elected if not c.votes_transferred]
-        if transfers:
+            # Transfer winning votes
             # Select candidates in order. Resolve ties.
-            candidate, _method = self.get_candidate(sample=transfers)
-            transfer_quota = self.round(
-                (candidate.votes - self.quota) / candidate.votes
-            )
+            candidate, _ = self.get_candidate(sample=winners)
+            votes = self.get_current_votes(candidate)
+            transfer_quota = self.round((votes - self.quota) / votes)
             self.transfer_votes(candidate, transfer_quota=transfer_quota)
 
         # In case of vote exhaustion, this is theoretically possible.
         elif self.seats_to_fill == len(self.standing_candidates):
             self.select_multiple(
                 self.standing_candidates,
-                ElectionRound.SELECTION_METHOD_NO_COMPETITION,
+                SelectionMethod.NoCompetition,
             )
 
         # Else exclude a candidate
         else:
             candidate, method = self.get_candidate(most_votes=False)
-            self.select(candidate, method, Candidate.EXCLUDED)
+            self.select(candidate, method, CandidateStatus.Excluded)
             self.transfer_votes(candidate)

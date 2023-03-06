@@ -7,11 +7,10 @@ import random
 
 from typing import Iterable
 
-from stvpoll.abcs import Candidate, Quota
-from stvpoll.abcs import ElectionRound
 from stvpoll.abcs import STVPollBase
 from stvpoll.exceptions import IncompleteResult
 from stvpoll.quotas import hagenbach_bischof_quota
+from stvpoll.types import SelectionMethod, CandidateStatus, Candidates, Candidate, Quota
 
 
 class CPOComparisonPoll(STVPollBase):
@@ -23,34 +22,41 @@ class CPOComparisonPoll(STVPollBase):
         compared: set[Candidate],
         quota: Quota = hagenbach_bischof_quota,
     ):
-        super(CPOComparisonPoll, self).__init__(
-            seats, [c.obj for c in candidates], quota
-        )
-        self.compared = [self.get_existing_candidate(c.obj) for c in compared]
-        self.winners = [self.get_existing_candidate(c.obj) for c in winners]
+        super(CPOComparisonPoll, self).__init__(seats, candidates, quota)
+        self.compared = compared
+        self.winners = winners
         self.below_quota = False
 
     def do_rounds(self) -> None:
         for exclude in set(self.standing_candidates).difference(self.winners):
-            self.select(
-                exclude, ElectionRound.SELECTION_METHOD_DIRECT, Candidate.EXCLUDED
-            )
+            self.select(exclude, SelectionMethod.Direct, CandidateStatus.Excluded)
             self.transfer_votes(exclude)
 
         for transfer in set(self.standing_candidates).difference(self.compared):
-            self.select(transfer, ElectionRound.SELECTION_METHOD_DIRECT)
+            self.select(transfer, SelectionMethod.Direct)
+            votes = self.get_current_votes(transfer)
             self.transfer_votes(
                 transfer,
-                transfer_quota=(Decimal(transfer.votes) - self.quota) / transfer.votes,
+                transfer_quota=(Decimal(votes) - self.quota) / votes,
             )
-            transfer.votes = self.quota
+            self.current_votes = {
+                **self.current_votes,
+                transfer: Decimal(self.quota),
+            }
 
     @property
-    def not_excluded(self) -> list[Candidate]:
-        return [c for c in self.candidates if c.status != Candidate.EXCLUDED]
+    def not_excluded(self) -> Candidates:
+        excluded = tuple(
+            r.selected[0]
+            for r in self.result.rounds
+            if r.status == CandidateStatus.Excluded
+        )
+        return tuple(c for c in self.candidates if c not in excluded)
 
-    def total_except(self, candidates: list[Candidate]) -> Decimal:
-        return sum(c.votes for c in self.not_excluded if c not in candidates)
+    def total_except(self, candidates: Candidates) -> Decimal:
+        return sum(
+            self.get_current_votes(c) for c in self.not_excluded if c not in candidates
+        )
 
 
 class CPOComparisonResult:
@@ -105,15 +111,13 @@ class CPO_STV(STVPollBase):
         for combination in combinations(possible_outcomes, 2):
             compared = set(c for sublist in combination for c in sublist)
             winners = set(compared)
-            winners.update(self.result.elected)
+            winners.update(self.result)
             comparison_poll = CPOComparisonPoll(
                 self.seats, self.candidates, winners=winners, compared=compared
             )
 
             for ballot in self.ballots:
-                comparison_poll.add_ballot(
-                    [c.obj for c in ballot.preferences], ballot.count
-                )
+                comparison_poll.add_ballot(ballot, ballot.count)
 
             comparison_poll.calculate()
             duels.append(CPOComparisonResult(comparison_poll, combination))
@@ -218,14 +222,12 @@ class CPO_STV(STVPollBase):
 
     def do_rounds(self) -> None:
         if len(self.candidates) == self.seats:
-            self.select_multiple(self.candidates, ElectionRound.SELECTION_METHOD_DIRECT)
+            self.select_multiple(self.candidates, SelectionMethod.Direct)
             return
 
         self.select_multiple(
-            [c for c in self.candidates if c.votes > self.quota],
-            ElectionRound.SELECTION_METHOD_DIRECT,
+            tuple(c for c in self.candidates if self.get_current_votes(c) > self.quota),
+            SelectionMethod.Direct,
         )
 
-        self.select_multiple(
-            list(self.get_best_approval()), ElectionRound.SELECTION_METHOD_CPO
-        )
+        self.select_multiple(tuple(self.get_best_approval()), SelectionMethod.CPO)

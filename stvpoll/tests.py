@@ -296,7 +296,7 @@ class ScottishSTVTests(unittest.TestCase):
         )
 
     def test_big(self):
-        random.seed(1)
+        random.seed(0)
         if not self._cut is ScottishSTV:
             self.skipTest("Only in scottland :)")
         poll = _big_fixture(self._cut, candidates=70, seats=34)
@@ -304,7 +304,7 @@ class ScottishSTVTests(unittest.TestCase):
         self.assertIs(result.as_dict()["complete"], True)
         self.assertEqual(
             next(iter(result.as_dict()["rounds"][-1]["vote_count"][0].values())),
-            Decimal("2.53572"),
+            Decimal("2.64286"),
         )
 
 
