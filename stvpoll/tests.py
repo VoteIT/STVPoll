@@ -453,13 +453,31 @@ class IRVTests(ScottishSTVTests):
 
 
 class RecalculateTests(unittest.TestCase):
-    def test_recalculate(self):
+    def _calculate_result(self, expected_winners=None):
         from .utils import recalculate_result
 
         random.seed(2)
         poll = _CPO_extreme_tie_fixture(ScottishSTV)
-        result = recalculate_result(poll, ("Gorm", "Robin", "Andrea", "Batman"))
-        self.assertEqual(result.elected_as_tuple(), ("Gorm", "Robin"))
+        return recalculate_result(
+            poll,
+            ("Gorm", "Robin", "Andrea", "Batman"),
+            expected_winners,
+        )
+
+    def test_recalculate(self):
+        self.assertEqual(
+            self._calculate_result().elected_as_tuple(),
+            ("Gorm", "Robin"),
+            "Expected result mismatch",
+        )
+
+    def test_expected_winners(self):
+        self.assertTrue(
+            self._calculate_result(("Gorm", "Robin")),
+            "Expected result mismatch",
+        )
+        with self.assertRaises(AssertionError):
+            self._calculate_result(("Robin", "Gorm"))
 
 
 if __name__ == "__main__":
