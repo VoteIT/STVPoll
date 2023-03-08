@@ -29,11 +29,11 @@ class CPOComparisonPoll(STVPollBase):
 
     def do_rounds(self) -> None:
         for exclude in set(self.standing_candidates).difference(self.winners):
-            self.select(exclude, SelectionMethod.Direct, CandidateStatus.Excluded)
+            self.exclude(exclude, SelectionMethod.Direct)
             self.transfer_votes(exclude)
 
         for transfer in set(self.standing_candidates).difference(self.compared):
-            self.select(transfer, SelectionMethod.Direct)
+            self.elect(transfer, SelectionMethod.Direct)
             votes = self.get_current_votes(transfer)
             self.transfer_votes(
                 transfer,
@@ -222,12 +222,12 @@ class CPO_STV(STVPollBase):
 
     def do_rounds(self) -> None:
         if len(self.candidates) == self.seats:
-            self.select_multiple(self.candidates, SelectionMethod.Direct)
+            self.elect(self.candidates, SelectionMethod.Direct)
             return
 
-        self.select_multiple(
+        self.elect(
             tuple(c for c in self.candidates if self.get_current_votes(c) > self.quota),
             SelectionMethod.Direct,
         )
 
-        self.select_multiple(tuple(self.get_best_approval()), SelectionMethod.CPO)
+        self.elect(tuple(self.get_best_approval()), SelectionMethod.CPO)

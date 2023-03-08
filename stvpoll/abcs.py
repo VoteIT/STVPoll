@@ -57,9 +57,9 @@ class ElectionRound:
 
     def as_dict(self) -> dict:
         return {
-            "status": self.status,
+            "method": self.selection_method.value,
             "selected": self.selected,
-            "method": self.selection_method,
+            "status": self.status.value,
             "vote_count": {c: float(votes) for c, votes in self.votes.items()},
         }
 
@@ -129,8 +129,8 @@ class ElectionResult(list[Candidate]):
             "runtime": self.runtime,
             "empty_ballot_count": self.empty_ballot_count,
         }
-        for strat in self.poll.tiebreakers:
-            result.update(strat.get_result_dict())
+        for strategy in self.poll.tiebreakers:
+            result.update(strategy.get_result_dict())
         return result
 
 
@@ -201,7 +201,7 @@ class STVPollBase:
 
     def resolve_tie(
         self, tied: Candidates, most_votes: bool = True
-    ) -> tuple[Candidate, int]:
+    ) -> tuple[Candidate, SelectionMethod]:
         history = tuple(r.votes for r in self.result.rounds)
         for strategy in self.tiebreakers:
             resolved = strategy.resolve(tied, history, lowest=not most_votes)
@@ -279,47 +279,85 @@ class STVPollBase:
     def complete(self) -> bool:
         return self.result.complete
 
-    def select(
-        self,
-        candidate: Candidate,
-        method: SelectionMethod,
-        status: CandidateStatus = CandidateStatus.Elected,
-    ) -> None:
-        self.result.select(candidate, self.current_votes, method, status)
+    def _get_sorted_elect_order(self, candidates: Candidates) -> Candidates:
+        """Select candidates in order, not bothering with ties."""
+        return tuple(
+            sorted(candidates, key=lambda c: self.get_current_votes(c), reverse=True)
+        )
 
-    def select_multiple(
-        self,
-        candidates: Candidates,
-        method: SelectionMethod,
-        status: CandidateStatus = CandidateStatus.Elected,
+    def _get_pendantic_elect_order(self, candidates: Candidates) -> Iterator[Candidate]:
+        """Generate list of candidates in order, resolving ties."""
+        while candidates:
+            candidate, _ = self.get_candidate(sample=candidates)
+            yield candidate
+            candidates = tuple(filter(lambda c: c != candidate, candidates))
+
+    def elect(
+        self, candidates: Candidates | Candidate, method: SelectionMethod
     ) -> None:
+        # Calling with empty list of candidates is OK
         if not candidates:
             return
-        votes = self.current_votes
-        elected = status == CandidateStatus.Elected
-        if self.pedantic_order:
-            # Select candidates in order, resolving ties.
-            def get_pedantic_order(sample: Candidates) -> Iterator[Candidate]:
-                while sample:
-                    candidate, _ = self.get_candidate(most_votes=elected, sample=sample)
-                    yield candidate
-                    sample = tuple(filter(lambda c: c != candidate, candidates))
-
-            candidates = tuple(get_pedantic_order(candidates))
-        else:
-            # Select candidates in order, not bothering with ties.
-            candidates = tuple(
-                sorted(
-                    candidates, key=lambda c: self.get_current_votes(c), reverse=elected
-                )
+        # Ensure tuple
+        if not isinstance(candidates, tuple):
+            candidates = (candidates,)
+        # If multiple, get correct order
+        if len(candidates) > 1:
+            candidates = (
+                tuple(self._get_pendantic_elect_order(candidates))
+                if self.pedantic_order
+                else self._get_sorted_elect_order(candidates)
             )
-
         self.result.select(
-            candidates,
-            votes,
-            method,
-            status,
+            candidates, self.current_votes, method, CandidateStatus.Elected
         )
+
+    def exclude(self, candidate: Candidate, method: SelectionMethod) -> None:
+        self.result.select(
+            candidate, self.current_votes, method, CandidateStatus.Excluded
+        )
+
+    # def select(
+    #     self,
+    #     candidate: Candidate,
+    #     method: SelectionMethod,
+    #     status: CandidateStatus = CandidateStatus.Elected,
+    # ) -> None:
+    #     self.result.select(candidate, self.current_votes, method, status)
+    #
+    # def select_multiple(
+    #     self,
+    #     candidates: Candidates,
+    #     method: SelectionMethod,
+    #     status: CandidateStatus = CandidateStatus.Elected,
+    # ) -> None:
+    #     if not candidates:
+    #         return
+    #     votes = self.current_votes
+    #     elected = status == CandidateStatus.Elected
+    #     if self.pedantic_order:
+    #         # Select candidates in order, resolving ties.
+    #         def get_pedantic_order(sample: Candidates) -> Iterator[Candidate]:
+    #             while sample:
+    #                 candidate, _ = self.get_candidate(most_votes=elected, sample=sample)
+    #                 yield candidate
+    #                 sample = tuple(filter(lambda c: c != candidate, candidates))
+    #
+    #         candidates = tuple(get_pedantic_order(candidates))
+    #     else:
+    #         # Select candidates in order, not bothering with ties.
+    #         candidates = tuple(
+    #             sorted(
+    #                 candidates, key=lambda c: self.get_current_votes(c), reverse=elected
+    #             )
+    #         )
+    #
+    #     self.result.select(
+    #         candidates,
+    #         votes,
+    #         method,
+    #         status,
+    #     )
 
     def calculate(self) -> ElectionResult:
         # if not self.ballots:  # pragma: no coverage

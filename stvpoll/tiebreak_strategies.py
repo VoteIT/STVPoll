@@ -1,12 +1,12 @@
 from decimal import Decimal
 from random import sample
-from typing import Protocol, Type
+from typing import Protocol
 
-from stvpoll.types import Candidates, Rounds, Candidate
+from stvpoll.types import Candidates, Rounds, Candidate, SelectionMethod
 
 
 class TiebreakStrategy(Protocol):
-    method: int
+    method: SelectionMethod
     name: str
 
     def resolve(
@@ -19,7 +19,7 @@ class TiebreakStrategy(Protocol):
 
 
 class TiebreakRandom:
-    method: int = 2
+    method = SelectionMethod.TiebreakRandom
     name = "random"
     used: bool = False
     shuffled: Candidates
@@ -49,7 +49,7 @@ class TiebreakRandom:
 
 
 class TiebreakHistory:
-    method: int = 1
+    method = SelectionMethod.TiebreakHistory
     name = "history"
 
     def resolve(

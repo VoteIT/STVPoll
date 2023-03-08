@@ -193,6 +193,10 @@ class ScottishSTVTests(unittest.TestCase):
     def _cut(self) -> Type[ScottishSTV]:
         return ScottishSTV
 
+    def multiple_only(self):
+        if not self._cut.multiple_winners:
+            self.skipTest("Only with multiple winner methods")
+
     def test_opa_example(self):
         obj = _opa_example_fixture(self._cut)
         result = obj.calculate()
@@ -212,15 +216,21 @@ class ScottishSTVTests(unittest.TestCase):
         self.assertEqual(result.as_dict()["randomized"], False)
 
     def test_tiebreak_randomized(self):
+        random.seed(42)
         obj = _CPO_extreme_tie_fixture(self._cut)
-        random.seed(2)
         result = obj.calculate()
-        self.assertEqual(result.as_dict()["randomized"], True)
-        self.assertEqual(result.as_dict()["complete"], True)
-        self.assertEqual(result.as_dict()["empty_ballot_count"], 0)
+        result_dict = result.as_dict()
+        self.assertEqual(result_dict["randomized"], True)
+        self.assertEqual(
+            result_dict["random_order"],
+            ("Batman", "Andrea", "Robin", "Gorm"),
+        )
+        self.assertEqual(result_dict["complete"], True)
+        self.assertEqual(result_dict["empty_ballot_count"], 0)
         self.assertEqual(result.elected_as_tuple(), ("Gorm", "Andrea"))
 
     def test_scottish_tiebreak_history(self):
+        self.multiple_only()
         obj = _scottish_tiebreak_history_fixture(self._cut)
         result = obj.calculate()
         try:
@@ -235,12 +245,14 @@ class ScottishSTVTests(unittest.TestCase):
             pdb.set_trace()
 
     def test_incomplete_result(self):
+        self.multiple_only()
         obj = _incomplete_result_fixture(self._cut)
         result = obj.calculate()
         self.assertEqual(result.as_dict()["randomized"], False)
         self.assertEqual(result.as_dict()["complete"], False)
 
     def test_tie_break_that_breaks(self):
+        self.multiple_only()
         obj = _tie_break_that_breaks(self._cut)
         result = obj.calculate()
         self.assertEqual(result.as_dict()["randomized"], True)
@@ -248,6 +260,7 @@ class ScottishSTVTests(unittest.TestCase):
         self.assertEqual(obj.complete, True)
 
     def test_multiple_quota_tiebreak(self):
+        self.multiple_only()
         poll = self._cut(
             seats=4, candidates=["one", "two", "three", "four", "five", "six"]
         )
@@ -258,6 +271,7 @@ class ScottishSTVTests(unittest.TestCase):
         self.assertTrue(result.complete)
 
     def test_exceptions(self):
+        self.multiple_only()
         from stvpoll.exceptions import STVException
         from stvpoll.exceptions import CandidateDoesNotExist
 
@@ -268,29 +282,34 @@ class ScottishSTVTests(unittest.TestCase):
             obj.add_ballot([1, 4])
 
     def test_randomization_disabled(self):
+        self.multiple_only()
         poll = self._cut(
             seats=2,
-            candidates=["one", "two", "three"],
+            candidates=[1, 2, 3],
             random_in_tiebreaks=False,
             pedantic_order=True,
         )
-        poll.add_ballot(["one", "two"], 2)
-        poll.add_ballot(["two", "one"], 2)
-        poll.add_ballot(["three"], 1)
+        poll.add_ballot([1, 2], 2)
+        poll.add_ballot([2, 1], 2)
+        poll.add_ballot([3], 1)
         result = poll.calculate()
         self.assertEqual(result.complete, not isinstance(poll, ScottishSTV))
 
-    def test_pedantic_order(self):
+    def test_no_pedantic_order(self):
+        self.multiple_only()
         poll = self._cut(
-            seats=2, candidates=["one", "two", "three"], random_in_tiebreaks=False
+            seats=2,
+            candidates=[1, 2, 3],
+            random_in_tiebreaks=False,
         )
-        poll.add_ballot(["one", "two"], 2)
-        poll.add_ballot(["two", "one"], 2)
-        poll.add_ballot(["three"], 1)
+        poll.add_ballot([1, 2], 2)
+        poll.add_ballot([2, 1], 2)
+        poll.add_ballot([3], 1)
         result = poll.calculate()
         self.assertEqual(result.complete, True)
 
     def test_bad_config(self):
+        self.multiple_only()
         from stvpoll.exceptions import STVException
 
         self.assertRaises(
@@ -424,12 +443,24 @@ class TiebreakTests(unittest.TestCase):
         )
 
 
+class IRVTests(ScottishSTVTests):
+    wiki_results = {"chocolate"}
+    wiki_cpo_results = set()
+    opa_results = {"Alice"}
+
+    @property
+    def _cut(self):
+        from .irv import IRV
+
+        return IRV
+
+
 class RecalculateTests(unittest.TestCase):
     def test_recalculate(self):
         from .utils import recalculate_result
 
-        poll = _CPO_extreme_tie_fixture(ScottishSTV)
         random.seed(2)
+        poll = _CPO_extreme_tie_fixture(ScottishSTV)
         result = recalculate_result(poll, ("Gorm", "Robin", "Andrea", "Batman"))
         self.assertEqual(result.elected_as_tuple(), ("Gorm", "Robin"))
 

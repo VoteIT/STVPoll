@@ -6,6 +6,8 @@ from stvpoll.types import SelectionMethod, CandidateStatus
 
 
 class ScottishSTV(STVPollBase):
+    multiple_winners = True
+
     def __init__(
         self,
         seats,
@@ -24,7 +26,7 @@ class ScottishSTV(STVPollBase):
             c for c in self.standing_candidates if self.current_votes[c] >= self.quota
         )
         if winners:
-            self.select_multiple(
+            self.elect(
                 winners,
                 SelectionMethod.Direct,
             )
@@ -38,7 +40,7 @@ class ScottishSTV(STVPollBase):
 
         # In case of vote exhaustion, this is theoretically possible.
         elif self.seats_to_fill == len(self.standing_candidates):
-            self.select_multiple(
+            self.elect(
                 self.standing_candidates,
                 SelectionMethod.NoCompetition,
             )
@@ -46,5 +48,5 @@ class ScottishSTV(STVPollBase):
         # Else exclude a candidate
         else:
             candidate, method = self.get_candidate(most_votes=False)
-            self.select(candidate, method, CandidateStatus.Excluded)
+            self.exclude(candidate, method)
             self.transfer_votes(candidate)
