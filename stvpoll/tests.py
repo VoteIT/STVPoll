@@ -262,10 +262,10 @@ class ScottishSTVTests(unittest.TestCase):
         from stvpoll.exceptions import CandidateDoesNotExist
 
         with self.assertRaises(STVException):
-            self._cut(seats=3, candidates=["one", "two"])
+            self._cut(seats=3, candidates=(1, 2))
         with self.assertRaises(CandidateDoesNotExist):
-            obj = self._cut(seats=3, candidates=["one", "two", "three"])
-            obj.add_ballot(["one", "four"])
+            obj = self._cut(seats=3, candidates=(1, 2, 3))
+            obj.add_ballot([1, 4])
 
     def test_randomization_disabled(self):
         poll = self._cut(
@@ -305,8 +305,8 @@ class ScottishSTVTests(unittest.TestCase):
         result = poll.calculate()
         self.assertIs(result.as_dict()["complete"], True)
         self.assertEqual(
-            next(iter(result.as_dict()["rounds"][-1]["vote_count"][0].values())),
-            Decimal("2.64286"),
+            next(iter(result.as_dict()["rounds"][-1]["vote_count"].values())),
+            2.64286,
         )
 
 

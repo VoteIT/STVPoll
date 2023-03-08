@@ -60,7 +60,7 @@ class ElectionRound:
             "status": self.status,
             "selected": self.selected,
             "method": self.selection_method,
-            "vote_count": tuple({c: votes} for c, votes in self.votes.items()),
+            "vote_count": {c: float(votes) for c, votes in self.votes.items()},
         }
 
 
@@ -82,7 +82,7 @@ class ElectionResult(list[Candidate]):
         return f'<ElectionResult in {len(self.rounds)} round(s): {", ".join(map(str, self))}>'
 
     def finish(self) -> None:
-        self.runtime = time() - self.start_time
+        self.runtime = round(time() - self.start_time, 6)
 
     # @property
     def select(
@@ -150,7 +150,7 @@ class STVPollBase:
         pedantic_order: bool = False,
     ):
         candidates = tuple(candidates)
-        self.candidates = random.sample(candidates, len(candidates))
+        self.candidates = tuple(random.sample(candidates, len(candidates)))
         self.ballots = []
         self._quota_function = quota
         self.seats = seats
