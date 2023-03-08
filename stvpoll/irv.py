@@ -6,11 +6,9 @@ from .exceptions import IncompleteResult
 from .types import SelectionMethod
 
 
-def irv_quota(poll: STVPollBase) -> int:
-    """More than 50 % of votes"""
-    return (
-        int(floor(Decimal(poll.ballot_count + poll.result.empty_ballot_count) / 2)) + 1
-    )
+def irv_quota(ballot_count: int, winners: int) -> int:
+    """More than 50 % of votes. This will ignore empty ballots."""
+    return int(floor(Decimal(ballot_count) / 2)) + 1
 
 
 class IRV(STVPollBase):

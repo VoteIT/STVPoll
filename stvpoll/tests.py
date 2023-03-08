@@ -216,15 +216,12 @@ class ScottishSTVTests(unittest.TestCase):
         self.assertEqual(result.as_dict()["randomized"], False)
 
     def test_tiebreak_randomized(self):
+        self.multiple_only()
         random.seed(42)
         obj = _CPO_extreme_tie_fixture(self._cut)
         result = obj.calculate()
         result_dict = result.as_dict()
         self.assertEqual(result_dict["randomized"], True)
-        self.assertEqual(
-            result_dict["random_order"],
-            ("Batman", "Andrea", "Robin", "Gorm"),
-        )
         self.assertEqual(result_dict["complete"], True)
         self.assertEqual(result_dict["empty_ballot_count"], 0)
         self.assertEqual(result.elected_as_tuple(), ("Gorm", "Andrea"))

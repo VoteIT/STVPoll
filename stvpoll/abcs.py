@@ -140,6 +140,7 @@ class STVPollBase:
     seats: int
     tiebreakers: list[TiebreakStrategy]
     current_votes: Votes
+    multiple_winners: bool = True
 
     def __init__(
         self,

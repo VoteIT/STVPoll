@@ -2,12 +2,10 @@ from __future__ import annotations
 
 from stvpoll.abcs import STVPollBase
 from stvpoll.quotas import droop_quota
-from stvpoll.types import SelectionMethod, CandidateStatus
+from stvpoll.types import SelectionMethod
 
 
 class ScottishSTV(STVPollBase):
-    multiple_winners = True
-
     def __init__(
         self,
         seats,
