@@ -130,6 +130,11 @@ class STVPollBase:
     def transfer_votes(
         self, _from: Candidates | Candidate, decrease_value: bool = False
     ) -> None:
+        """
+        Transfer votes for list of candidates or a single candidate.
+        If candidate was elected, ballot value should probably be decreased.
+        Will generate new current_votes dictionary.
+        """
         if not isinstance(_from, tuple):
             _from = (_from,)
         standing = self.standing_candidates
@@ -137,21 +142,25 @@ class STVPollBase:
         for candidate in _from:
             for ballot in self.ballots:
                 # Candidate is next in line among standing candidates
-                if candidate == ballot.get_next_preference(standing + (candidate,)):
-                    if decrease_value:
-                        votes = self.get_current_votes(candidate)
-                        ballot.decrease_value((votes - self.quota) / votes, self.round)
-                    target_candidate = ballot.get_next_preference(standing)
-                    if target_candidate:
-                        # target_candidate.votes += ballot.value
-                        transfers[(_from, target_candidate)] += ballot.value
-                    else:
-                        self.result.exhausted += ballot.value
+                if candidate != ballot.get_next_preference(standing + (candidate,)):
+                    continue
+                if decrease_value:
+                    votes = self.get_current_votes(candidate)
+                    ballot.decrease_value((votes - self.quota) / votes, self.round)
+                target_candidate = ballot.get_next_preference(standing)
+                if target_candidate:
+                    transfers[(candidate, target_candidate)] += ballot.value
+                else:
+                    self.result.exhausted += ballot.value
 
-        # Create a completely new current votes dictionary
-        self.current_votes = {
-            c: self.get_current_votes(c) + transfers[(_from, c)] for c in standing
-        }
+            # Create a completely new current votes dictionary, with new vote values and w/o transferred candidate.
+            # Do this for every vote transfer, so that next vote transfer is based on correct votes.
+            # If not, next vote transfer may transfer too low vote value.
+            self.current_votes = {
+                c: votes + transfers[(candidate, c)]
+                for c, votes in self.current_votes.items()
+                if c != candidate
+            }
 
         self.result.transfer_log.append(
             {

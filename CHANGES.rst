@@ -1,8 +1,14 @@
 Changes
 =======
 
+0.4.3 (2023-03-09)
+------------------
+
+- Fix subtle bug in vote transfers, where current votes was not updated for every vote transfer.
+
 0.4.2 (2023-03-09)
 ------------------
+
 - Fix bug in 0.4.1, where not all elected candidates votes were transferred to next preference.
 
 0.4.1 (2023-03-09)
