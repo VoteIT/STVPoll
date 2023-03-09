@@ -10,7 +10,7 @@ Important breaking changes: Result data structure is updated. Import paths chang
 - Introducing tiebreak strategies.
 - Random tiebreaks not uses a shuffled candidate list, which is reported as part of result.
 - Utility to recalculate result from previous polls, using ordered candidate list in randomized tiebreaks.
-- Base classes moved from ``__init__.py`` to ``abcs.py``.
+- STVPollBase class moved from ``__init__.py`` to ``abcs.py``.
 - Updated result data structure.
 
 0.3.0 (dev)
