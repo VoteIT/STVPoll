@@ -1,8 +1,8 @@
 Changes
 =======
 
-0.4.0 (dev)
------------
+0.4.1 (2023-03-09)
+------------------
 Important breaking changes: Result data structure is updated. Import paths changed.
 
 - Rewritten type annotations.
