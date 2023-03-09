@@ -1,6 +1,6 @@
 from decimal import Decimal
 from enum import Enum
-from typing import TypeVar, Protocol
+from typing import TypeVar, Protocol, TypedDict
 
 Candidate = TypeVar("Candidate", int, str)
 Candidates = tuple[Candidate, ...]
@@ -26,3 +26,21 @@ class SelectionMethod(str, Enum):
     TiebreakRandom = "Tiebreak (Random)"
     NoCompetition = "No competition left"
     CPO = "Comparison of Pairs of Outcomes"
+
+
+class RoundDict(TypedDict):
+    method: str
+    selected: Candidates
+    status: str
+    vote_count: dict[Candidate, float]
+
+
+class ResultDict(TypedDict):
+    winners: Candidates
+    candidates: Candidates
+    complete: bool
+    rounds: tuple[RoundDict, ...]
+    randomized: bool
+    quota: int
+    runtime: float
+    empty_ballot_count: int

@@ -479,6 +479,33 @@ class RecalculateTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             self._calculate_result(("Robin", "Gorm"))
 
+    def test_result_to_order(self):
+        from .utils import result_dict_to_order
+
+        order = result_dict_to_order(
+            {
+                "candidates": (9, 8, 7, 5, 4, 6, 3, 2, 1),
+                "rounds": (
+                    {"status": "Excluded", "selected": (9,)},
+                    {"status": "Elected", "selected": (1,)},
+                    {"status": "Excluded", "selected": (8,)},
+                    {"status": "Elected", "selected": (2,)},
+                    {"status": "Excluded", "selected": (7,)},
+                    {"status": "Elected", "selected": (3,)},
+                ),
+                "winners": (1, 2, 3),
+            }
+        )
+        self.assertEqual(order[:3], (1, 2, 3), "Poll winners")
+        self.assertSetEqual(
+            set(order[3:6]),
+            {4, 5, 6},
+            "Unknown order for candidates not in winners or excluded",
+        )
+        self.assertEqual(
+            order[6:], (7, 8, 9), "Excluded candidates in reverse exclusion order"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
