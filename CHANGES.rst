@@ -1,9 +1,9 @@
 Changes
 =======
 
-0.4.2 (2023-03-10)
+0.4.2 (2023-03-09)
 ------------------
-- Fix bug in 0.4.1, where not all elected votes were transferred to next preference.
+- Fix bug in 0.4.1, where not all elected candidates votes were transferred to next preference.
 
 0.4.1 (2023-03-09)
 ------------------
