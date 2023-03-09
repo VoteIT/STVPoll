@@ -127,40 +127,46 @@ class STVPollBase:
             return resolved, strategy.method
         raise IncompleteResult("Unresolved tiebreak (random disallowed)")
 
+    def _iter_transferable_ballots(
+        self, sample: Candidates
+    ) -> Iterator[tuple[PreferenceBallot, Candidate]]:
+        all_candidates = sample + self.standing_candidates
+        for ballot in self.ballots:
+            current_preference = ballot.get_next_preference(all_candidates)
+            if current_preference in sample:
+                yield ballot, current_preference
+
     def transfer_votes(
-        self, _from: Candidates | Candidate, decrease_value: bool = False
+        self, candidates: Candidates | Candidate, decrease_value: bool = False
     ) -> None:
         """
         Transfer votes for list of candidates or a single candidate.
         If candidate was elected, ballot value should probably be decreased.
         Will generate new current_votes dictionary.
         """
-        if not isinstance(_from, tuple):
-            _from = (_from,)
+        if not isinstance(candidates, tuple):
+            candidates = (candidates,)
         standing = self.standing_candidates
         transfers = Counter()
-        for candidate in _from:
-            for ballot in self.ballots:
-                # Candidate is next in line among standing candidates
-                if candidate != ballot.get_next_preference(standing + (candidate,)):
-                    continue
-                if decrease_value:
-                    votes = self.get_current_votes(candidate)
-                    ballot.decrease_value((votes - self.quota) / votes, self.round)
-                target_candidate = ballot.get_next_preference(standing)
-                if target_candidate:
-                    transfers[(candidate, target_candidate)] += ballot.value
-                else:
-                    self.result.exhausted += ballot.value
 
-            # Create a completely new current votes dictionary, with new vote values and w/o transferred candidate.
-            # Do this for every vote transfer, so that next vote transfer is based on correct votes.
-            # If not, next vote transfer may transfer too low vote value.
-            self.current_votes = {
-                c: votes + transfers[(candidate, c)]
-                for c, votes in self.current_votes.items()
-                if c != candidate
-            }
+        # Go through each transferable ballot (where a candidate is current preference)
+        for ballot, candidate in self._iter_transferable_ballots(candidates):
+            if decrease_value:
+                votes = self.get_current_votes(candidate)
+                transfer_quota = (votes - self.quota) / votes
+                ballot.decrease_value(transfer_quota, self.round)
+
+            if target_candidate := ballot.get_next_preference(standing):
+                transfers[(candidate, target_candidate)] += ballot.value
+            else:
+                self.result.exhausted += ballot.value
+
+        # Create a completely new current votes dictionary, with new vote values and w/o transferred candidates.
+        self.current_votes = {
+            candidate: self.get_current_votes(candidate)
+            + sum(transfers[(_from, candidate)] for _from in candidates)
+            for candidate in standing
+        }
 
         self.result.transfer_log.append(
             {

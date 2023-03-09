@@ -277,7 +277,7 @@ class ScottishSTVTests(unittest.TestCase):
         self.multiple_only()
         obj = _tie_break_that_breaks(self._cut)
         result = obj.calculate()
-        self.assertEqual(result.as_dict()["randomized"], isinstance(obj, ScottishSTV))
+        self.assertEqual(result.as_dict()["randomized"], True)
         self.assertEqual(result.as_dict()["complete"], True)
         self.assertEqual(obj.complete, True)
 

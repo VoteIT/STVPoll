@@ -1,6 +1,11 @@
 Changes
 =======
 
+0.4.4 (2023-03-09)
+------------------
+
+- Fix important bug related to vote transferring.
+
 0.4.3 (2023-03-09)
 ------------------
 
