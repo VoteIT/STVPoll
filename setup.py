@@ -14,7 +14,7 @@ tests_require = ()
 
 setup(
     name="STVPoll",
-    version="0.4.1",
+    version="0.4.2",
     description="STV polling methods",
     long_description=README + "\n\n" + CHANGES,
     classifiers=[

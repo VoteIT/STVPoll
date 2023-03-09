@@ -108,7 +108,7 @@ class STVPollBase:
             sample = self.standing_candidates
         minmax = max if most_votes else min
         candidate = minmax(sample, key=lambda c: self.get_current_votes(c))
-        ties = self.get_ties(candidate)
+        ties = self.get_ties(candidate, sample)
         if ties:
             return self.resolve_tie(ties, most_votes)
         return candidate, SelectionMethod.Direct
@@ -128,20 +128,25 @@ class STVPollBase:
         raise IncompleteResult("Unresolved tiebreak (random disallowed)")
 
     def transfer_votes(
-        self, _from: Candidate, transfer_quota: Decimal = Decimal(1)
+        self, _from: Candidates | Candidate, decrease_value: bool = False
     ) -> None:
+        if not isinstance(_from, tuple):
+            _from = (_from,)
         standing = self.standing_candidates
         transfers = Counter()
-        for ballot in self.ballots:
-            # Candidate is next in line among standing candidates
-            if _from == ballot.get_next_preference(standing + (_from,)):
-                ballot.decrease_value(transfer_quota, self.round)
-                target_candidate = ballot.get_next_preference(standing)
-                if target_candidate:
-                    # target_candidate.votes += ballot.value
-                    transfers[(_from, target_candidate)] += ballot.value
-                else:
-                    self.result.exhausted += ballot.value
+        for candidate in _from:
+            for ballot in self.ballots:
+                # Candidate is next in line among standing candidates
+                if candidate == ballot.get_next_preference(standing + (candidate,)):
+                    if decrease_value:
+                        votes = self.get_current_votes(candidate)
+                        ballot.decrease_value((votes - self.quota) / votes, self.round)
+                    target_candidate = ballot.get_next_preference(standing)
+                    if target_candidate:
+                        # target_candidate.votes += ballot.value
+                        transfers[(_from, target_candidate)] += ballot.value
+                    else:
+                        self.result.exhausted += ballot.value
 
         # Create a completely new current votes dictionary
         self.current_votes = {

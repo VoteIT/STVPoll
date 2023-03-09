@@ -1,6 +1,10 @@
 Changes
 =======
 
+0.4.2 (2023-03-10)
+------------------
+- Fix bug in 0.4.1, where not all elected votes were transferred to next preference.
+
 0.4.1 (2023-03-09)
 ------------------
 Important breaking changes: Result data structure is updated. Import paths changed.

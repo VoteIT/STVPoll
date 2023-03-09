@@ -32,17 +32,9 @@ class CPOComparisonPoll(STVPollBase):
             self.exclude(exclude, SelectionMethod.Direct)
             self.transfer_votes(exclude)
 
-        for transfer in set(self.standing_candidates).difference(self.compared):
-            self.elect(transfer, SelectionMethod.Direct)
-            votes = self.get_current_votes(transfer)
-            self.transfer_votes(
-                transfer,
-                transfer_quota=(Decimal(votes) - self.quota) / votes,
-            )
-            self.current_votes = {
-                **self.current_votes,
-                transfer: Decimal(self.quota),
-            }
+        elected = tuple(set(self.standing_candidates).difference(self.compared))
+        self.elect(elected, SelectionMethod.Direct)
+        self.transfer_votes(elected, decrease_value=True)
 
     @property
     def not_excluded(self) -> Candidates:

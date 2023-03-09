@@ -28,13 +28,8 @@ class ScottishSTV(STVPollBase):
                 winners,
                 SelectionMethod.Direct,
             )
-
             # Transfer winning votes
-            # Select candidates in order. Resolve ties.
-            candidate, _ = self.get_candidate(sample=winners)
-            votes = self.get_current_votes(candidate)
-            transfer_quota = self.round((votes - self.quota) / votes)
-            self.transfer_votes(candidate, transfer_quota=transfer_quota)
+            self.transfer_votes(winners, decrease_value=True)
 
         # In case of vote exhaustion, this is theoretically possible.
         elif self.seats_to_fill == len(self.standing_candidates):

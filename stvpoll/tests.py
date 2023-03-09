@@ -159,6 +159,31 @@ def _tie_break_that_breaks(factory: Type[STVPollBase]) -> STVPollBase:
     return obj
 
 
+def _vote_transfers_check(factory: Type[STVPollBase]) -> STVPollBase:
+    candidates = (6041, 6042, 6044, 6038, 6034, 6043, 6040, 6039, 6035, 6036, 6037)
+    ballots = [
+        [6039, 6043, 6042, 6044, 6034],
+        [6043, 6042, 6039, 6036, 6037, 6044, 6041, 6040, 6038, 6035, 6034],
+        [6038, 6042, 6036, 6035, 6034, 6037, 6040, 6039, 6043, 6044, 6041],
+        [6034, 6035, 6036, 6037, 6038],
+        [6037, 6038, 6044],
+        [6039, 6038, 6037, 6042, 6044],
+        [6038, 6039, 6037, 6036, 6035, 6034, 6040, 6042],
+        [6036, 6035, 6039, 6040, 6042, 6037, 6041, 6043, 6044],
+        [6034, 6038, 6039, 6040, 6042],
+        [6034, 6036, 6035, 6040, 6042, 6043, 6044, 6041, 6039, 6037, 6038],
+        [6037, 6042, 6040, 6044, 6035],
+        [6034, 6042, 6037, 6044, 6036, 6035, 6043, 6040, 6039, 6041, 6038],
+        [6037, 6043, 6038, 6035, 6034, 6036, 6039, 6040, 6041, 6042, 6044],
+        [6036, 6035, 6034, 6038, 6041, 6042, 6040],
+        [6037, 6044, 6042, 6040, 6034, 6036, 6035, 6038, 6041],
+    ]
+    poll = factory(seats=5, candidates=candidates, random_in_tiebreaks=True)
+    for b in ballots:
+        poll.add_ballot(b)
+    return poll
+
+
 class STVPollBaseTests(unittest.TestCase):
     @property
     def _cut(self):
@@ -252,7 +277,7 @@ class ScottishSTVTests(unittest.TestCase):
         self.multiple_only()
         obj = _tie_break_that_breaks(self._cut)
         result = obj.calculate()
-        self.assertEqual(result.as_dict()["randomized"], True)
+        self.assertEqual(result.as_dict()["randomized"], isinstance(obj, ScottishSTV))
         self.assertEqual(result.as_dict()["complete"], True)
         self.assertEqual(obj.complete, True)
 
@@ -314,16 +339,25 @@ class ScottishSTVTests(unittest.TestCase):
         )
 
     def test_big(self):
-        random.seed(0)
         if not self._cut is ScottishSTV:
             self.skipTest("Only in scottland :)")
+        random.seed(0)
         poll = _big_fixture(self._cut, candidates=70, seats=34)
         result = poll.calculate()
         self.assertIs(result.as_dict()["complete"], True)
         self.assertEqual(
-            next(iter(result.as_dict()["rounds"][-1]["vote_count"].values())),
-            2.64286,
+            list(result.as_dict()["rounds"][-1]["vote_count"].values())[7],
+            2.23174,
         )
+
+    def test_vote_transfers(self):
+        if not self._cut is ScottishSTV:
+            self.skipTest("Only in scottland :)")
+        random.seed(42)
+        poll = _vote_transfers_check(self._cut)
+        result = poll.calculate()
+        self.assertEqual(poll.quota, 3)
+        self.assertEqual(result.rounds[1].votes[6038], Decimal(2.5))
 
 
 class CPOSTVTests(ScottishSTVTests):
