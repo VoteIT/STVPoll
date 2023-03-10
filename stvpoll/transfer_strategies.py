@@ -21,6 +21,7 @@ def _iter_transferable_ballots(
             yield ballot, current_preference
 
 
+# Currently not used in STVPoll
 def transfer_all(
     ballots: list[PreferenceBallot],
     vote_count: Votes,

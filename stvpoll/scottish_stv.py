@@ -2,13 +2,10 @@ from __future__ import annotations
 
 from stvpoll.abcs import STVPollBase
 from stvpoll.quotas import droop_quota
-from stvpoll.transfer_strategies import transfer_serial
-from stvpoll.types import SelectionMethod, TransferStrategy
+from stvpoll.types import SelectionMethod
 
 
 class ScottishSTV(STVPollBase):
-    transfer_strategy: TransferStrategy = staticmethod(transfer_serial)
-
     def __init__(
         self,
         seats,

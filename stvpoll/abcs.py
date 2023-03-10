@@ -17,7 +17,7 @@ from stvpoll.tiebreak_strategies import (
     TiebreakHistory,
     TiebreakRandom,
 )
-from stvpoll.transfer_strategies import transfer_all
+from stvpoll.transfer_strategies import transfer_serial
 from stvpoll.types import (
     Quota,
     Candidates,
@@ -65,7 +65,7 @@ class STVPollBase:
     multiple_winners: bool = True
     # Default methods
     round = staticmethod(rounding_method)
-    transfer_strategy: TransferStrategy = staticmethod(transfer_all)
+    transfer_strategy: TransferStrategy = staticmethod(transfer_serial)
 
     def __init__(
         self,
