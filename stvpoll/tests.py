@@ -4,6 +4,7 @@ import random
 import unittest
 import os
 import json
+from collections import Counter
 from decimal import Decimal
 from codecs import open
 
@@ -347,7 +348,7 @@ class ScottishSTVTests(unittest.TestCase):
         self.assertIs(result.as_dict()["complete"], True)
         self.assertEqual(
             list(result.as_dict()["rounds"][-1]["vote_count"].values())[7],
-            2.23174,
+            2.16351,
         )
 
     def test_vote_transfers(self):
@@ -539,6 +540,87 @@ class RecalculateTests(unittest.TestCase):
         self.assertEqual(
             order[6:], (7, 8, 9), "Excluded candidates in reverse exclusion order"
         )
+
+
+class TransferStrategiesTests(unittest.TestCase):
+    def test_transfer_all(self):
+        from .transfer_strategies import transfer_all
+        from .abcs import PreferenceBallot
+
+        def rounder(x):
+            return x
+
+        ballots = [
+            PreferenceBallot((1, 2, 3), 3, rounder),
+            PreferenceBallot((2, 3), 3, rounder),
+            PreferenceBallot((3,), 3, rounder),
+            PreferenceBallot((1,), 1, rounder),
+        ]
+
+        transfers, exhausted, votes = transfer_all(
+            ballots,
+            {
+                1: Decimal(5),
+                2: Decimal(2),
+                3: Decimal(1),
+            },
+            (1, 2),
+            (3,),
+            2,
+            True,
+        )
+        self.assertDictEqual(
+            transfers,
+            {(1, 3): Decimal("1.8"), (2, 3): Decimal(0)},
+            "transfer_quota: (5-2)/5=0.6, transfer value: 3*tq",
+        )
+        self.assertEqual(exhausted, Decimal(".6"))
+        self.assertDictEqual(votes, {3: Decimal("2.8")})
+        self.assertEqual(ballots[0].multiplier, Decimal("0.6"))
+        self.assertEqual(ballots[1].multiplier, Decimal(0))
+
+    def test_transfer_serial(self):
+        from .transfer_strategies import transfer_serial
+        from .abcs import PreferenceBallot
+
+        def rounder(x):
+            return round(x, 5)
+
+        ballots = [
+            PreferenceBallot((1, 2, 3), 3, rounder),
+            PreferenceBallot((2, 3), 3, rounder),
+            PreferenceBallot((3,), 3, rounder),
+            PreferenceBallot((1,), 1, rounder),
+        ]
+
+        transfers, exhausted, votes = transfer_serial(
+            ballots,
+            {
+                1: Decimal(5),
+                2: Decimal(2),
+                3: Decimal(1),
+            },
+            (1, 2),
+            (3,),
+            2,
+            True,
+        )
+        self.assertDictEqual(
+            transfers,
+            {(1, 2): Decimal("1.80000"), (2, 3): Decimal("2.27367")},
+        )
+        self.assertEqual(exhausted, Decimal(".6"))
+        self.assertEqual(
+            ballots[1].multiplier,
+            Decimal("0.47368"),
+            "(3.8-2)/3.8 = 0.47368",
+        )
+        self.assertEqual(
+            ballots[0].multiplier,
+            Decimal("0.28421"),
+            "0.6*0.47368 = 0.28421",
+        )
+        self.assertDictEqual(votes, {3: Decimal("3.27367")})
 
 
 if __name__ == "__main__":

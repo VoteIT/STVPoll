@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import random
-from collections import Counter
 from decimal import Decimal
 from functools import cached_property
 
@@ -18,6 +17,7 @@ from stvpoll.tiebreak_strategies import (
     TiebreakHistory,
     TiebreakRandom,
 )
+from stvpoll.transfer_strategies import transfer_all
 from stvpoll.types import (
     Quota,
     Candidates,
@@ -25,23 +25,32 @@ from stvpoll.types import (
     Votes,
     CandidateStatus,
     SelectionMethod,
+    TransferStrategy,
 )
 
 
+def rounding_method(value: Decimal) -> Decimal:
+    return round(value, 5).normalize()
+
+
 class PreferenceBallot(list[Candidate]):
-    def __init__(self, preferences: Candidates, count: int) -> None:
+    def __init__(
+        self,
+        preferences: Candidates,
+        count: int,
+        rounding: Callable[[Decimal], Decimal] = rounding_method,
+    ) -> None:
         super().__init__(preferences)
         self.count = count
         self.multiplier = Decimal(1)
+        self.round = rounding
 
     @property
     def value(self) -> Decimal:
         return self.multiplier * self.count
 
-    def decrease_value(
-        self, multiplier: Decimal, _round: Callable[[Decimal], Decimal]
-    ) -> None:
-        self.multiplier = _round(self.multiplier * multiplier)
+    def decrease_value(self, multiplier: Decimal) -> None:
+        self.multiplier = self.round(self.multiplier * multiplier)
 
     def get_next_preference(self, sample: Candidates) -> Candidate | None:
         return next((p for p in self if p in sample), None)
@@ -54,6 +63,9 @@ class STVPollBase:
     tiebreakers: list[TiebreakStrategy]
     current_votes: Votes
     multiple_winners: bool = True
+    # Default methods
+    round = staticmethod(rounding_method)
+    transfer_strategy: TransferStrategy = staticmethod(transfer_all)
 
     def __init__(
         self,
@@ -76,10 +88,6 @@ class STVPollBase:
         if random_in_tiebreaks:
             self.tiebreakers.append(TiebreakRandom(candidates))
 
-    @staticmethod
-    def round(value: Decimal) -> Decimal:
-        return round(value, 5).normalize()
-
     @cached_property
     def quota(self) -> int:
         return self._quota_function(self.ballot_count, self.seats)
@@ -94,7 +102,7 @@ class STVPollBase:
         if set(ballot).difference(self.candidates):
             raise CandidateDoesNotExist
         if ballot:
-            self.ballots.append(PreferenceBallot(ballot, num))
+            self.ballots.append(PreferenceBallot(ballot, num, self.round))
         else:
             self.result.empty_ballot_count += num
 
@@ -127,46 +135,25 @@ class STVPollBase:
             return resolved, strategy.method
         raise IncompleteResult("Unresolved tiebreak (random disallowed)")
 
-    def _iter_transferable_ballots(
-        self, sample: Candidates
-    ) -> Iterator[tuple[PreferenceBallot, Candidate]]:
-        all_candidates = sample + self.standing_candidates
-        for ballot in self.ballots:
-            current_preference = ballot.get_next_preference(all_candidates)
-            if current_preference in sample:
-                yield ballot, current_preference
-
     def transfer_votes(
         self, candidates: Candidates | Candidate, decrease_value: bool = False
     ) -> None:
         """
-        Transfer votes for list of candidates or a single candidate.
-        If candidate was elected, ballot value should probably be decreased.
-        Will generate new current_votes dictionary.
+        Use Transfer Strategy to transfer votes for elected or excluded candidates.
+        Set decrease_value = True if elected.
         """
         if not isinstance(candidates, tuple):
             candidates = (candidates,)
-        standing = self.standing_candidates
-        transfers = Counter()
 
-        # Go through each transferable ballot (where a candidate is current preference)
-        for ballot, candidate in self._iter_transferable_ballots(candidates):
-            if decrease_value:
-                votes = self.get_current_votes(candidate)
-                transfer_quota = (votes - self.quota) / votes
-                ballot.decrease_value(transfer_quota, self.round)
-
-            if target_candidate := ballot.get_next_preference(standing):
-                transfers[(candidate, target_candidate)] += ballot.value
-            else:
-                self.result.exhausted += ballot.value
-
-        # Create a completely new current votes dictionary, with new vote values and w/o transferred candidates.
-        self.current_votes = {
-            candidate: self.get_current_votes(candidate)
-            + sum(transfers[(_from, candidate)] for _from in candidates)
-            for candidate in standing
-        }
+        transfers, exhausted, self.current_votes = self.transfer_strategy(
+            self.ballots,
+            self.current_votes,
+            candidates,
+            self.standing_candidates,
+            self.quota,
+            decrease_value,
+        )
+        self.result.exhausted += exhausted
 
         self.result.transfer_log.append(
             {
@@ -228,10 +215,11 @@ class STVPollBase:
 
     def elect(
         self, candidates: Candidates | Candidate, method: SelectionMethod
-    ) -> None:
+    ) -> Candidates:
+        """Elect single or list of candidates, returning election order."""
         # Calling with empty list of candidates is OK
         if not candidates:
-            return
+            return ()
         # Ensure tuple
         if not isinstance(candidates, tuple):
             candidates = (candidates,)
@@ -245,6 +233,7 @@ class STVPollBase:
         self.result.select(
             candidates, self.current_votes, method, CandidateStatus.Elected
         )
+        return candidates
 
     def exclude(self, candidate: Candidate, method: SelectionMethod) -> None:
         self.result.select(

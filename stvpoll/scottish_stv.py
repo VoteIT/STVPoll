@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from stvpoll.abcs import STVPollBase
 from stvpoll.quotas import droop_quota
-from stvpoll.types import SelectionMethod
+from stvpoll.transfer_strategies import transfer_serial
+from stvpoll.types import SelectionMethod, TransferStrategy
 
 
 class ScottishSTV(STVPollBase):
+    transfer_strategy: TransferStrategy = staticmethod(transfer_serial)
+
     def __init__(
         self,
         seats,
@@ -24,12 +27,12 @@ class ScottishSTV(STVPollBase):
             c for c in self.standing_candidates if self.current_votes[c] >= self.quota
         )
         if winners:
-            self.elect(
+            order = self.elect(
                 winners,
                 SelectionMethod.Direct,
             )
-            # Transfer winning votes
-            self.transfer_votes(winners, decrease_value=True)
+            # Transfer winning votes in order
+            self.transfer_votes(order, decrease_value=True)
 
         # In case of vote exhaustion, this is theoretically possible.
         elif self.seats_to_fill == len(self.standing_candidates):
