@@ -164,7 +164,9 @@ def _vote_transfers_check(factory: Type[STVPollBase]) -> STVPollBase:
         [6036, 6035, 6034, 6038, 6041, 6042, 6040],
         [6037, 6044, 6042, 6040, 6034, 6036, 6035, 6038, 6041],
     ]
-    poll = factory(seats=5, candidates=candidates, random_in_tiebreaks=True)
+    poll = factory(
+        seats=5, candidates=candidates, random_in_tiebreaks=True, pedantic_order=True,
+    )
     for b in ballots:
         poll.add_ballot(b)
     return poll
