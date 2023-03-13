@@ -1,6 +1,13 @@
 Changes
 =======
 
+0.4.5 (2023-03-13)
+------------------
+
+- 100 % test coverage.
+- Scottish election texts moved outside main project.
+- Simpler test running using Makefile.
+
 0.4.4 (2023-03-09)
 ------------------
 
