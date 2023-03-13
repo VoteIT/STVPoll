@@ -11,10 +11,10 @@ class TiebreakStrategy(Protocol):
 
     def resolve(
         self, candidates: Candidates, history: Rounds, lowest: bool = False
-    ) -> Candidates | Candidate:
+    ) -> Candidates | Candidate:  # pragma: no coverage
         ...
 
-    def get_result_dict(self) -> dict:
+    def get_result_dict(self) -> dict:  # pragma: no coverage
         ...
 
 

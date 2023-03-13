@@ -6,27 +6,29 @@ from functools import cached_property
 
 from typing import Iterable, Callable, Iterator
 
-from stvpoll.exceptions import (
+from .exceptions import (
     CandidateDoesNotExist,
     IncompleteResult,
     STVException,
 )
-from stvpoll.result import ElectionResult
-from stvpoll.tiebreak_strategies import (
+from .result import ElectionResult
+from .tiebreak_strategies import (
     TiebreakStrategy,
     TiebreakHistory,
     TiebreakRandom,
 )
-from stvpoll.transfer_strategies import transfer_serial
-from stvpoll.types import (
-    Quota,
+from .transfer_strategies import (
+    TransferStrategy,
+    transfer_serial,
+)
+from .types import (
     Candidates,
     Candidate,
     Votes,
     CandidateStatus,
     SelectionMethod,
-    TransferStrategy,
 )
+from .quotas import Quota
 
 
 def rounding_method(value: Decimal) -> Decimal:
@@ -127,8 +129,6 @@ class STVPollBase:
         history = tuple(r.votes for r in self.result.rounds)
         for strategy in self.tiebreakers:
             resolved = strategy.resolve(tied, history, lowest=not most_votes)
-            if resolved is None:
-                continue
             if isinstance(resolved, tuple):
                 tied = resolved
                 continue
@@ -146,12 +146,12 @@ class STVPollBase:
             candidates = (candidates,)
 
         transfers, exhausted, self.current_votes = self.transfer_strategy(
-            self.ballots,
-            self.current_votes,
-            candidates,
-            self.standing_candidates,
-            self.quota,
-            decrease_value,
+            ballots=self.ballots,
+            vote_count=self.current_votes,
+            transfers=candidates,
+            standing=self.standing_candidates,
+            quota=self.quota,
+            decrease_value=decrease_value,
         )
         self.result.exhausted += exhausted
 
@@ -178,11 +178,7 @@ class STVPollBase:
             }
         )
 
-    def get_ties(
-        self, candidate: Candidate, sample: Candidates | None = None
-    ) -> Candidates | None:
-        if not sample:
-            sample = self.standing_candidates
+    def get_ties(self, candidate: Candidate, sample: Candidates) -> Candidates | None:
         votes = self.get_current_votes(candidate)
         ties = tuple(filter(lambda c: self.get_current_votes(c) == votes, sample))
         if len(ties) > 1:

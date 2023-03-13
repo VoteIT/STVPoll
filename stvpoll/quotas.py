@@ -1,5 +1,13 @@
 from decimal import Decimal
 from math import floor
+from typing import Protocol
+
+
+class Quota(Protocol):
+    """Calculate poll quota from valid ballot count and expected poll winners"""
+
+    def __call__(self, ballot_count: int, winners: int) -> int:  # pragma: no coverage
+        ...
 
 
 # Used in CPO STV

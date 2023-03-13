@@ -16,7 +16,7 @@ from stvpoll.types import (
     RoundDict,
 )
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no coverage
     from .abcs import STVPollBase
 
 

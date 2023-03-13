@@ -1,12 +1,28 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Iterator, TYPE_CHECKING, Counter
+from typing import Iterator, TYPE_CHECKING, Counter, Protocol
 
 from stvpoll.types import Candidates, Candidate, Votes, VoteTransfers
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no coverage
     from stvpoll.abcs import PreferenceBallot
+
+
+class TransferStrategy(Protocol):
+    """Transfer votes, returning vote transfer mapping, exhausted votes and resulting Votes"""
+
+    def __call__(
+        self,
+        *,
+        ballots: list[PreferenceBallot],
+        vote_count: Votes,
+        transfers: Candidates,
+        standing: Candidates,
+        quota: int,
+        decrease_value: bool,
+    ) -> tuple[VoteTransfers, Decimal, Votes]:  # pragma: no coverage
+        ...
 
 
 def _iter_transferable_ballots(
@@ -23,6 +39,7 @@ def _iter_transferable_ballots(
 
 # Currently not used in STVPoll
 def transfer_all(
+    *,
     ballots: list[PreferenceBallot],
     vote_count: Votes,
     transfers: Candidates,
@@ -62,6 +79,7 @@ def transfer_all(
 
 
 def transfer_serial(
+    *,
     ballots: list[PreferenceBallot],
     vote_count: Votes,
     transfers: Candidates,

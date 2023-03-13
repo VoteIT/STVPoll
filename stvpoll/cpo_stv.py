@@ -7,10 +7,18 @@ import random
 
 from typing import Iterable
 
-from stvpoll.abcs import STVPollBase
-from stvpoll.exceptions import IncompleteResult
-from stvpoll.quotas import hagenbach_bischof_quota
-from stvpoll.types import SelectionMethod, CandidateStatus, Candidates, Candidate, Quota
+from .abcs import STVPollBase
+from .exceptions import IncompleteResult
+from .quotas import (
+    Quota,
+    hagenbach_bischof_quota,
+)
+from .types import (
+    SelectionMethod,
+    CandidateStatus,
+    Candidates,
+    Candidate,
+)
 
 
 class CPOComparisonPoll(STVPollBase):
