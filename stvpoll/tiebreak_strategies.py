@@ -11,7 +11,7 @@ class TiebreakStrategy(Protocol):
 
     def resolve(
         self, candidates: Candidates, history: Rounds, lowest: bool = False
-    ) -> Candidates | Candidate:
+    ) -> Union[Candidates, Candidate]:
         ...
 
     def get_result_dict(self) -> dict:
@@ -57,7 +57,7 @@ class TiebreakHistory:
         candidates: Candidates,
         history: Rounds,
         lowest: bool = False,
-    ) -> Candidates | Candidate:
+    ) -> Union[Candidates, Candidate]:
         for round in reversed(history):
             round_candidates: tuple[tuple[Candidate, Decimal], ...] = tuple(
                 (c, v) for c, v in round.items() if c in candidates
