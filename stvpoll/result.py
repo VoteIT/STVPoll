@@ -39,9 +39,10 @@ class ElectionRound:
 class ElectionResult(list[Candidate]):
     exhausted = Decimal(0)
     runtime = 0.0
-    randomized = False
     rounds: list[ElectionRound]
     empty_ballot_count = 0
+    # CPO STV requires manually setting randomized result
+    _randomized = False
 
     def __init__(self, poll: STVPollBase) -> None:
         super().__init__()
@@ -52,6 +53,15 @@ class ElectionResult(list[Candidate]):
 
     def __repr__(self) -> str:  # pragma: no coverage
         return f'<ElectionResult in {len(self.rounds)} round(s): {", ".join(map(str, self))}>'
+
+    @property
+    def randomized(self):
+        return self._randomized or any(
+            r.selection_method == SelectionMethod.TiebreakRandom for r in self.rounds
+        )
+
+    def set_randomized(self):
+        self._randomized = True
 
     def finish(self) -> None:
         self.runtime = round(time() - self.start_time, 6)

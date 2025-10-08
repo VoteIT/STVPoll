@@ -236,6 +236,7 @@ class ScottishSTVTests(unittest.TestCase):
         random.seed(42)
         obj = _CPO_extreme_tie_fixture(self._cut)
         result = obj.calculate()
+        self.assertIs(result.randomized, True)
         result_dict = result.as_dict()
         self.assertEqual(result_dict["randomized"], True)
         self.assertEqual(result_dict["complete"], True)

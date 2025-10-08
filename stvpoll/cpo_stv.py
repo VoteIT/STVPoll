@@ -171,7 +171,7 @@ class CPO_STV(STVPollBase):
             return equals[0]
         if not self.random_in_tiebreaks:
             raise IncompleteResult("Random in tiebreaks disallowed")
-        self.result.randomized = True
+        self.result.set_randomized()
         return random.choice(equals)
 
     # def resolve_tie_ranked_pairs(self, duels):

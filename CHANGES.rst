@@ -1,6 +1,11 @@
 Changes
 =======
 
+0.4.6 (2025-10-08)
+------------------
+
+- Bugfix: Result.randomized was always False. It's now a computed property.
+
 0.4.5 (2023-03-13)
 ------------------
 
