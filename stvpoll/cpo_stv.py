@@ -30,7 +30,7 @@ class CPOComparisonPoll(STVPollBase):
         compared: set[Candidate],
         quota: Quota = hagenbach_bischof_quota,
     ):
-        super(CPOComparisonPoll, self).__init__(seats, candidates, quota)
+        super().__init__(seats, candidates, quota)
         self.compared = compared
         self.winners = winners
         self.below_quota = False
@@ -91,7 +91,7 @@ class CPO_STV(STVPollBase):
     def __init__(self, quota=hagenbach_bischof_quota, *args, **kwargs):
         self.random_in_tiebreaks = kwargs.get("random_in_tiebreaks", True)
         kwargs["pedantic_order"] = False
-        super(CPO_STV, self).__init__(*args, quota=quota, **kwargs)
+        super().__init__(*args, quota=quota, **kwargs)
 
     @staticmethod
     def possible_combinations(proposals: int, winners: int) -> int:

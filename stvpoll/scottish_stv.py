@@ -14,9 +14,7 @@ class ScottishSTV(STVPollBase):
         random_in_tiebreaks=True,
         pedantic_order=False,
     ):
-        super(ScottishSTV, self).__init__(
-            seats, candidates, quota, random_in_tiebreaks, pedantic_order
-        )
+        super().__init__(seats, candidates, quota, random_in_tiebreaks, pedantic_order)
 
     def calculate_round(self) -> None:
         # First, declare winners if any are over quota
