@@ -5,6 +5,7 @@ from decimal import Decimal
 from functools import cached_property
 
 from typing import Iterable, Callable, Iterator
+from warnings import deprecated
 
 from .exceptions import (
     CandidateDoesNotExist,
@@ -193,7 +194,8 @@ class STVPollBase:
         return self.seats - len(self.result)
 
     @property
-    def complete(self) -> bool:
+    @deprecated("Check result instead")
+    def complete(self) -> bool:  # pragma: no coverage
         return self.result.complete
 
     def _get_sorted_elect_order(self, candidates: Candidates) -> Candidates:
