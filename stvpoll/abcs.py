@@ -168,9 +168,11 @@ class STVPollBase:
         standing = self.standing_candidates
 
         def get_initial_votes(candidate: Candidate):
-            return sum(b.value for b in self.ballots if b[0] == candidate)
+            return candidate, sum(
+                (b.value for b in self.ballots if b[0] == candidate), start=Decimal(0)
+            )
 
-        self.current_votes = {c: get_initial_votes(c) for c in standing}
+        self.current_votes = dict(map(get_initial_votes, standing))
         self.result.transfer_log.append(
             {
                 "transfers": None,

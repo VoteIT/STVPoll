@@ -52,7 +52,7 @@ class ElectionResult(list[Candidate]):
         self.transfer_log = []
 
     def __repr__(self) -> str:  # pragma: no coverage
-        return f'<ElectionResult in {len(self.rounds)} round(s): {", ".join(map(str, self))}>'
+        return f"<ElectionResult in {len(self.rounds)} round(s): {', '.join(map(str, self))}>"
 
     @property
     def randomized(self):
@@ -94,10 +94,10 @@ class ElectionResult(list[Candidate]):
     def complete(self) -> bool:
         return len(self) == self.poll.seats
 
-    def elected_as_tuple(self) -> tuple:
+    def elected_as_tuple(self) -> tuple[Candidate, ...]:
         return tuple(self)
 
-    def elected_as_set(self) -> set:
+    def elected_as_set(self) -> set[Candidate]:
         return set(self)
 
     def as_dict(self) -> ResultDict:
