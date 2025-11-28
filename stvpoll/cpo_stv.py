@@ -95,6 +95,10 @@ class CPO_STV(STVPollBase):
 
     @staticmethod
     def possible_combinations(proposals: int, winners: int) -> int:
+        """
+        >>> CPO_STV.possible_combinations(5, 2)
+        10
+        """
         return int(
             factorial(proposals) / factorial(winners) / factorial(proposals - winners)
         )

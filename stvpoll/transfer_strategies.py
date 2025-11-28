@@ -30,9 +30,8 @@ def _iter_transferable_ballots(
     transfers: Candidates,
     standing: Candidates,
 ) -> Iterator[tuple[PreferenceBallot, Candidate]]:
-    all_candidates = transfers + standing
     for ballot in ballots:
-        current_preference = ballot.get_next_preference(all_candidates)
+        current_preference = ballot.get_next_preference(transfers + standing)
         if current_preference in transfers:
             yield ballot, current_preference
 

@@ -4,7 +4,13 @@ from .types import SelectionMethod
 
 
 def irv_quota(ballot_count: int, winners: int) -> int:
-    """More than 50 % of votes. This will ignore empty ballots."""
+    """
+    More than 50 % of votes. This will ignore empty ballots.
+    >>> irv_quota(50, 0)
+    26
+    >>> irv_quota(49, 0)
+    25
+    """
     return ballot_count // 2 + 1
 
 

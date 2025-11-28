@@ -4,7 +4,7 @@ install:
 	pip install -r requirements.txt
 
 coverage:
-	coverage run -m unittest stvpoll.tests stvpoll_testing.tests && coverage report
+	coverage run -m pytest --doctest-modules && coverage report
 
 test:
-	python -m unittest stvpoll.tests stvpoll_testing.tests --failfast
+	pytest --doctest-modules
