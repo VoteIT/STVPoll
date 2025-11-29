@@ -5,7 +5,7 @@ from decimal import Decimal
 from functools import cached_property
 
 from typing import Iterable, Callable, Iterator
-from warnings import deprecated
+from typing_extensions import deprecated
 
 from .exceptions import (
     CandidateDoesNotExist,

@@ -7,6 +7,8 @@ import random
 
 from typing import Iterable
 
+from tarjan import tarjan
+
 from .abcs import STVPollBase
 from .exceptions import IncompleteResult
 from .quotas import (
@@ -149,8 +151,6 @@ class CPO_STV(STVPollBase):
         return []
 
     def resolve_tie_minimax(self, duels: list[CPOComparisonResult]) -> list[Candidate]:
-        from tarjan import tarjan
-
         graph = {}
         for d in duels:
             graph.setdefault(d.loser, []).append(d.winner)
