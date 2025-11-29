@@ -4,7 +4,8 @@ from stvpoll.abcs import STVPollBase
 from stvpoll.exceptions import STVException, CandidateDoesNotExist
 
 
-class DummySTV(STVPollBase): ...
+class DummySTV(STVPollBase):
+    def calculate_round(self): ...
 
 
 def test_ballot_count():

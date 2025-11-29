@@ -1,99 +1,84 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from dataclasses import dataclass
 from decimal import Decimal
 from itertools import combinations
 from math import factorial
 import random
 
-from typing import Iterable
-
 from tarjan import tarjan
 
-from .abcs import STVPollBase
+from .abcs import STVPollBase, PreferenceBallot
 from .exceptions import IncompleteResult
-from .quotas import (
-    Quota,
-    hagenbach_bischof_quota,
-)
-from .types import (
-    SelectionMethod,
-    CandidateStatus,
-    Candidates,
-    Candidate,
-)
+from .quotas import droop_quota
+from .types import SelectionMethod, Candidates, Candidate
 
 
-class CPOComparisonPoll(STVPollBase):
-    def __init__(
-        self,
-        seats: int,
-        candidates: Iterable,
-        winners: set[Candidate],
-        compared: set[Candidate],
-        quota: Quota = hagenbach_bischof_quota,
-    ):
-        super().__init__(seats, candidates, quota)
-        self.compared = compared
-        self.winners = winners
-        self.below_quota = False
+@dataclass
+class CPOComparisonPoll:
+    ballots: tuple[PreferenceBallot, ...]
+    compared: tuple[Candidates, Candidates]
+    quota: int
 
-    def do_rounds(self) -> None:
-        for exclude in set(self.standing_candidates).difference(self.winners):
-            self.exclude(exclude, SelectionMethod.Direct)
-            self.transfer_votes(exclude)
+    def candidate_ballots(self, candidate: Candidate) -> Iterator[PreferenceBallot]:
+        """Yields ballots where candidate is currently on top"""
+        for b in self.ballots:
+            if b.get_next_preference(self.standing) == candidate:
+                yield b
 
-        elected = tuple(set(self.standing_candidates).difference(self.compared))
-        self.elect(elected, SelectionMethod.Direct)
-        self.transfer_votes(elected, decrease_value=True)
+    def __post_init__(self) -> None:
+        """Perform comparison here"""
+        outcome1, outcome2 = set(self.compared[0]), set(self.compared[1])
+        # Eliminate candidates in neither outcome
+        self.standing = outcome1 | outcome2
+        # Count initial votes after primary transfers.
+        votes = {
+            c: Decimal(sum((b.count for b in self.candidate_ballots(c)), start=0))
+            for c in self.standing
+        }
 
-    @property
-    def not_excluded(self) -> Candidates:
-        excluded = tuple(
-            r.selected[0]
-            for r in self.result.rounds
-            if r.status == CandidateStatus.Excluded
-        )
-        return tuple(c for c in self.candidates if c not in excluded)
+        # Transfer surpluses of candidates in both outcomes
+        for candidate in outcome1 & outcome2:
+            if votes[candidate] > self.quota:
+                votes[candidate], transfer_quota = (
+                    self.quota,
+                    (votes[candidate] - self.quota) / votes[candidate],
+                )
+                for ballot in self.candidate_ballots(candidate):
+                    ballot.decrease_value(transfer_quota)
+                    if next_preference := ballot.get_next_preference(
+                        self.standing.difference((candidate,))
+                    ):
+                        votes[next_preference] += ballot.value
+            self.standing.remove(candidate)
 
-    def total_except(self, candidates: Candidates) -> Decimal:
-        return sum(
-            self.get_current_votes(c) for c in self.not_excluded if c not in candidates
-        )
-
-
-class CPOComparisonResult:
-    def __init__(
-        self,
-        poll: CPOComparisonPoll,
-        compared: tuple[tuple[Candidate], tuple[Candidate]],
-    ) -> None:
-        self.poll = poll
-        self.compared = compared
-        self.all = set(compared[0] + compared[1])
-        self.totals = sorted(
+        # Add up the totals
+        totals = sorted(
             (
-                (compared[0], self.total(compared[0])),
-                (compared[1], self.total(compared[1])),
+                (outcome, sum((votes[c] for c in outcome), start=Decimal(0)))
+                for outcome in self.compared
             ),
             key=lambda c: c[1],
         )
-        # May be unclear here, but winner or looser does not matter if tied
-        self.loser, self.winner = [c[0] for c in self.totals]
-        self.difference = self.totals[1][1] - self.totals[0][1]
+        # May be unclear here, but winner or loser does not matter if tied
+        self.loser, self.winner = [c[0] for c in totals]
+        self.difference = totals[1][1] - totals[0][1]
         self.tied = self.difference == 0
-
-    def others(self, combination: tuple[Candidate]) -> set[Candidate]:
-        return self.all.difference(combination)
-
-    def total(self, combination: tuple[Candidate]) -> Decimal:
-        return self.poll.total_except(list(self.others(combination)))
 
 
 class CPO_STV(STVPollBase):
-    def __init__(self, quota=hagenbach_bischof_quota, *args, **kwargs):
+    def __init__(self, quota=droop_quota, *args, **kwargs):
         self.random_in_tiebreaks = kwargs.get("random_in_tiebreaks", True)
         kwargs["pedantic_order"] = False
         super().__init__(*args, quota=quota, **kwargs)
+
+    def calculate_round(self) -> None:
+        """Elect in one round"""
+        if len(self.candidates) == self.seats:
+            self.elect(self.candidates, SelectionMethod.Direct)
+        else:
+            self.elect(tuple(self.get_best_approval()), SelectionMethod.CPO)
 
     @staticmethod
     def possible_combinations(proposals: int, winners: int) -> int:
@@ -106,34 +91,27 @@ class CPO_STV(STVPollBase):
         )
 
     def get_best_approval(self) -> list[Candidate]:
-        # If no more seats to fill, there will be no duels. Return empty list.
-        if self.seats_to_fill == 0:
-            return []
-
-        duels = []
-        possible_outcomes = list(
+        possible_outcomes = tuple(
             combinations(self.standing_candidates, self.seats_to_fill)
         )
-        for combination in combinations(possible_outcomes, 2):
-            compared = set(c for sublist in combination for c in sublist)
-            winners = set(compared)
-            winners.update(self.result)
-            comparison_poll = CPOComparisonPoll(
-                self.seats, self.candidates, winners=winners, compared=compared
+        duels = [
+            CPOComparisonPoll(
+                # Copy ballots to ensure no manipulation of originals
+                ballots=tuple(
+                    PreferenceBallot(tuple(b), b.count) for b in self.ballots
+                ),
+                compared=combination,
+                quota=self.quota,
             )
-
-            for ballot in self.ballots:
-                comparison_poll.add_ballot(ballot, ballot.count)
-
-            comparison_poll.calculate()
-            duels.append(CPOComparisonResult(comparison_poll, combination))
+            for combination in combinations(possible_outcomes, 2)
+        ]
 
         # Return either a clear winner (no ties), or resolved using MiniMax
         return self.get_duels_winner(duels) or self.resolve_tie_minimax(duels)
         # ... Ranked Pairs (so slow)
         # return self.get_duels_winner(duels) or self.resolve_tie_ranked_pairs(duels)
 
-    def get_duels_winner(self, duels: list[CPOComparisonResult]) -> list[Candidate]:
+    def get_duels_winner(self, duels: list[CPOComparisonPoll]) -> list[Candidate]:
         wins = set()
         losses = set()
         for duel in duels:
@@ -150,7 +128,7 @@ class CPO_STV(STVPollBase):
         # No clear winner
         return []
 
-    def resolve_tie_minimax(self, duels: list[CPOComparisonResult]) -> list[Candidate]:
+    def resolve_tie_minimax(self, duels: list[CPOComparisonPoll]) -> list[Candidate]:
         graph = {}
         for d in duels:
             graph.setdefault(d.loser, []).append(d.winner)
@@ -223,15 +201,3 @@ class CPO_STV(STVPollBase):
     #                     group.remove(duel)
     #
     #     return self.get_duels_winner(noncircular_duels)
-
-    def do_rounds(self) -> None:
-        if len(self.candidates) == self.seats:
-            self.elect(self.candidates, SelectionMethod.Direct)
-            return
-
-        self.elect(
-            tuple(c for c in self.candidates if self.get_current_votes(c) > self.quota),
-            SelectionMethod.Direct,
-        )
-
-        self.elect(tuple(self.get_best_approval()), SelectionMethod.CPO)

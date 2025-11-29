@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from abc import ABC, abstractmethod
 from decimal import Decimal
 from functools import cached_property
 
@@ -55,11 +56,13 @@ class PreferenceBallot(list[Candidate]):
     def decrease_value(self, multiplier: Decimal) -> None:
         self.multiplier = self.round(self.multiplier * multiplier)
 
-    def get_next_preference(self, sample: Candidates) -> Candidate | None:
+    def get_next_preference(
+        self, sample: Candidates | set[Candidate]
+    ) -> Candidate | None:
         return next((p for p in self if p in sample), None)
 
 
-class STVPollBase:
+class STVPollBase(ABC):
     ballots: list[PreferenceBallot]
     candidates: Candidates
     seats: int
@@ -217,9 +220,6 @@ class STVPollBase:
         self, candidates: Candidates | Candidate, method: SelectionMethod
     ) -> Candidates:
         """Elect single or list of candidates, returning election order."""
-        # Calling with empty list of candidates is OK
-        if not candidates:
-            return ()
         # Ensure tuple
         if not isinstance(candidates, tuple):
             candidates = (candidates,)
@@ -255,5 +255,5 @@ class STVPollBase:
         while self.seats_to_fill:
             self.calculate_round()
 
-    def calculate_round(self) -> None:  # pragma: no coverage
-        raise NotImplementedError()
+    @abstractmethod
+    def calculate_round(self) -> None: ...

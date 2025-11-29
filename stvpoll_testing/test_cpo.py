@@ -25,9 +25,6 @@ def test_wikipedia_cpo_example_poll():
 
 
 def test_cpo_extreme_tie():
-    """
-    Example from https://en.wikipedia.org/wiki/CPO-STV
-    """
     from stvpoll.cpo_stv import CPO_STV
 
     seed(42)
