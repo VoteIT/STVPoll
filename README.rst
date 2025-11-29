@@ -1,16 +1,12 @@
 STVPoll README
 ==============
 
-.. image:: https://travis-ci.org/VoteIT/STVPoll.svg?branch=master
-    :target: https://travis-ci.org/VoteIT/STVPoll
-
 Library to perform STV Poll calculations.
 The package was created as part of the VoteIT project, specifically to handle larger
 elections that was hard to count with Markus Schulzes STV method.
 
 Typical usage would be primary elections or elections with many winners
 from a pool of many candidates. The result will be proportional.
-
 
 Fully supported:
 
@@ -19,8 +15,12 @@ Fully supported:
 
 Mostly working:
 
-* CPO STV (Does not fail gracefully if too many outcomes)
+* CPO STV (Do not use for polls with too many possible outcomes)
 
+Python versions
+---------------
+
+Tested on python 3.10 through 3.13.
 
 Example
 -------
@@ -48,14 +48,13 @@ https://en.wikipedia.org/wiki/Single_transferable_vote
 
     result = poll.calculate()
 
-
 This will return a ElectionResult object that contains the result and some useful metadata.
-The elected attribute contains the elected candidates.
 
-Candidates to the left have higher preference, so:
-['pear', 'orange'] means 'pear' before 'orange' etc.
-The number is how many of that kind of ballot there is.
+Each ballot is a list of candidates in order of preference, so: ['pear', 'orange'] means
+'pear' before 'orange' etc.
 
+Count is the number of ballots with those exact preferences. In the above example,
+4 people voted for only 'orange', two people voted for 'pear' and then 'orange, and so on.
 
 .. code-block:: python
 
@@ -70,4 +69,3 @@ You may fork the code at:
 https://github.com/VoteIT/STVPoll
 
 Please report any bugs there, or email info@voteit.se
-
