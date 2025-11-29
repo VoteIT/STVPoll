@@ -28,12 +28,12 @@ def test_cpo_extreme_tie():
     from stvpoll.cpo_stv import CPO_STV
 
     seed(42)
-    example_candidates = ("Andrea", "Batman", "Robin", "Gorm")
+    example_candidates = ("Andrea", "Batman", "Robin", "Fjodor")
     example_ballots = (
         (("Andrea", "Batman", "Robin"), 1),
         (("Robin", "Andrea", "Batman"), 1),
         (("Batman", "Robin", "Andrea"), 1),
-        (("Gorm",), 2),
+        (("Fjodor",), 2),
     )
     poll = CPO_STV(seats=2, candidates=example_candidates)
     for b in example_ballots:
@@ -42,7 +42,7 @@ def test_cpo_extreme_tie():
     assert result.randomized
     assert result.complete
     assert result.empty_ballot_count == 0
-    assert result.elected_as_tuple() == ("Gorm", "Andrea")
+    assert result.elected_as_tuple() == ("Fjodor", "Andrea")
 
 
 def test_all_wins():

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass
 from decimal import Decimal
@@ -41,12 +42,14 @@ class CPOComparisonPoll:
         # Transfer surpluses of candidates in both outcomes
         for candidate in outcome1 & outcome2:
             if votes[candidate] > self.quota:
-                votes[candidate], transfer_quota = (
+                # Set candidates votes to quota and get fraction to transfer
+                votes[candidate], transfer_fraction = (
                     self.quota,
                     (votes[candidate] - self.quota) / votes[candidate],
                 )
+                # Do the actual transfer, according to fraction
                 for ballot in self.candidate_ballots(candidate):
-                    ballot.decrease_value(transfer_quota)
+                    ballot.decrease_value(transfer_fraction)
                     if next_preference := ballot.get_next_preference(
                         self.standing.difference((candidate,))
                     ):
@@ -55,15 +58,13 @@ class CPOComparisonPoll:
 
         # Add up the totals
         totals = sorted(
-            (
-                (outcome, sum((votes[c] for c in outcome), start=Decimal(0)))
-                for outcome in self.compared
-            ),
+            ((outcome, sum(votes[c] for c in outcome)) for outcome in self.compared),
             key=lambda c: c[1],
         )
         # May be unclear here, but winner or loser does not matter if tied
-        self.loser, self.winner = [c[0] for c in totals]
-        self.difference = totals[1][1] - totals[0][1]
+        self.loser = totals[0][0]
+        self.winner = totals[1][0]
+        self.difference: Decimal = totals[1][1] - totals[0][1]
         self.tied = self.difference == 0
 
 
@@ -90,11 +91,11 @@ class CPO_STV(STVPollBase):
             factorial(proposals) / factorial(winners) / factorial(proposals - winners)
         )
 
-    def get_best_approval(self) -> list[Candidate]:
+    def get_best_approval(self) -> Candidates:
         possible_outcomes = tuple(
             combinations(self.standing_candidates, self.seats_to_fill)
         )
-        duels = [
+        duels = tuple(
             CPOComparisonPoll(
                 # Copy ballots to ensure no manipulation of originals
                 ballots=tuple(
@@ -104,16 +105,17 @@ class CPO_STV(STVPollBase):
                 quota=self.quota,
             )
             for combination in combinations(possible_outcomes, 2)
-        ]
+        )
 
         # Return either a clear winner (no ties), or resolved using MiniMax
         return self.get_duels_winner(duels) or self.resolve_tie_minimax(duels)
         # ... Ranked Pairs (so slow)
         # return self.get_duels_winner(duels) or self.resolve_tie_ranked_pairs(duels)
 
-    def get_duels_winner(self, duels: list[CPOComparisonPoll]) -> list[Candidate]:
-        wins = set()
-        losses = set()
+    @staticmethod
+    def get_duels_winner(duels: tuple[CPOComparisonPoll, ...]) -> Candidates | None:
+        wins = set[Candidates]()
+        losses = set[Candidates]()
         for duel in duels:
             losses.add(duel.loser)
             if duel.tied:
@@ -125,36 +127,36 @@ class CPO_STV(STVPollBase):
         if len(undefeated) == 1:
             # If there is ONE clear winner (won all duels), return that combination.
             return undefeated.pop()
-        # No clear winner
-        return []
 
-    def resolve_tie_minimax(self, duels: list[CPOComparisonPoll]) -> list[Candidate]:
-        graph = {}
+    def resolve_tie_minimax(self, duels: tuple[CPOComparisonPoll, ...]) -> Candidates:
+        graph = defaultdict(list)
         for d in duels:
-            graph.setdefault(d.loser, []).append(d.winner)
+            graph[d.loser].append(d.winner)
             if d.tied:
-                graph.setdefault(d.winner, []).append(d.loser)
-        smith_set = tarjan(graph)[0]
+                graph[d.winner].append(d.loser)
 
-        biggest_defeats = {}
-        for candidates in smith_set:
-            ds = filter(
-                lambda d: d.loser == candidates or (d.tied and d.winner == candidates),
-                duels,
+        # The smith set is a set of winners at the top-cycle, when there is no Condorcet winner.
+        smith_set: list[Candidates] = tarjan(graph)[0]
+
+        biggest_defeats = {
+            candidates: max(
+                (duel.difference for duel in duels if duel.loser == candidates),
+                default=Decimal(0),
             )
-            biggest_defeats[candidates] = max(d.difference for d in ds)
+            for candidates in smith_set
+        }
         minimal_defeat = min(biggest_defeats.values())
-        equals = [
+        winners = [
             candidates
             for candidates, diff in biggest_defeats.items()
             if diff == minimal_defeat
         ]
-        if len(equals) == 1:  # pragma: no cover
-            return equals[0]
+        if len(winners) == 1:  # pragma: no cover
+            return winners[0]
         if not self.random_in_tiebreaks:
             raise IncompleteResult("Random in tiebreaks disallowed")
         self.result.set_randomized()
-        return random.choice(equals)
+        return random.choice(winners)
 
     # def resolve_tie_ranked_pairs(self, duels):
     #     # type: (List[CPOComparisonResult]) -> List[Candidate]
