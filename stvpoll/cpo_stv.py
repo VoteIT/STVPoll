@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterator
-from dataclasses import dataclass
 from decimal import Decimal
 from itertools import combinations
 from math import factorial
 import random
 
 from tarjan import tarjan
+from typing_extensions import NamedTuple
 
 from .abcs import STVPollBase, PreferenceBallot
 from .exceptions import IncompleteResult
@@ -16,56 +16,73 @@ from .quotas import droop_quota
 from .types import SelectionMethod, Candidates, Candidate
 
 
-@dataclass
-class CPOComparisonPoll:
-    ballots: tuple[PreferenceBallot, ...]
-    compared: tuple[Candidates, Candidates]
-    quota: int
+class Duel(NamedTuple):
+    winner: Candidates
+    loser: Candidates
+    difference: Decimal
 
-    def candidate_ballots(self, candidate: Candidate) -> Iterator[PreferenceBallot]:
-        """Yields ballots where candidate is currently on top"""
-        for b in self.ballots:
-            if b.is_current_candidate(candidate, self.standing):
-                yield b
 
-    def __post_init__(self) -> None:
-        """Perform comparison here"""
-        outcome1, outcome2 = set(self.compared[0]), set(self.compared[1])
-        # Eliminate candidates in neither outcome
-        self.standing = outcome1 | outcome2
-        # Count initial votes after primary transfers.
-        votes = {
-            c: Decimal(sum((b.count for b in self.candidate_ballots(c)), start=0))
-            for c in self.standing
-        }
+Duels = tuple[Duel, ...]
 
-        # Transfer surpluses of candidates in both outcomes
-        for candidate in outcome1 & outcome2:
-            if votes[candidate] > self.quota:
-                # Set candidates votes to quota and get fraction to transfer
-                votes[candidate], transfer_fraction = (
-                    Decimal(self.quota),
-                    (votes[candidate] - self.quota) / votes[candidate],
-                )
-                # Do the actual transfer, according to fraction
-                for ballot in self.candidate_ballots(candidate):
-                    ballot.decrease_value(transfer_fraction)
-                    if next_preference := ballot.get_next_preference(
-                        self.standing.difference((candidate,))
-                    ):
-                        votes[next_preference] += ballot.value
-            self.standing.remove(candidate)
 
-        # Add up the totals
-        totals = sorted(
-            ((outcome, sum(votes[c] for c in outcome)) for outcome in self.compared),
-            key=lambda c: c[1],
+def iter_candidate_ballots(
+    ballots: tuple[PreferenceBallot, ...],
+    candidate: Candidate,
+    standing: set[Candidate],
+) -> Iterator[PreferenceBallot]:
+    """Yields ballots where candidate is currently on top"""
+    for b in ballots:
+        if b.is_current_candidate(candidate, standing):
+            yield b
+
+
+def outcomes_duel(
+    ballots: tuple[PreferenceBallot, ...],
+    compared: tuple[Candidates, Candidates],
+    quota: int,
+):
+    """Perform comparison between outcomes, returning a memory efficient named tuple"""
+    outcome1, outcome2 = set(compared[0]), set(compared[1])
+    # Eliminate candidates in neither outcome
+    standing = outcome1 | outcome2
+    # Count initial votes after primary transfers.
+    votes = {
+        c: Decimal(
+            sum(
+                (b.count for b in iter_candidate_ballots(ballots, c, standing)), start=0
+            )
         )
-        # May be unclear here, but winner or loser does not matter if tied
-        self.loser = totals[0][0]
-        self.winner = totals[1][0]
-        self.difference: Decimal = totals[1][1] - totals[0][1]
-        self.tied = self.difference == 0
+        for c in standing
+    }
+
+    # Transfer surpluses of candidates in both outcomes
+    for candidate in outcome1 & outcome2:
+        if votes[candidate] > quota:
+            # Set candidates votes to quota and get fraction to transfer
+            votes[candidate], transfer_fraction = (
+                Decimal(quota),
+                (votes[candidate] - quota) / votes[candidate],
+            )
+            # Do the actual transfer, according to fraction
+            for ballot in iter_candidate_ballots(ballots, candidate, standing):
+                ballot.decrease_value(transfer_fraction)
+                if next_preference := ballot.get_next_preference(
+                    standing.difference((candidate,))
+                ):
+                    votes[next_preference] += ballot.value
+        standing.remove(candidate)
+
+    # Add up the totals
+    totals = sorted(
+        ((outcome, sum(votes[c] for c in outcome)) for outcome in compared),
+        key=lambda c: c[1],
+    )
+    # May be unclear here, but winner or loser does not matter if tied
+    return Duel(
+        winner=totals[1][0],
+        loser=totals[0][0],
+        difference=totals[1][1] - totals[0][1],
+    )
 
 
 class CPO_STV(STVPollBase):
@@ -96,7 +113,7 @@ class CPO_STV(STVPollBase):
             combinations(self.standing_candidates, self.seats_to_fill)
         )
         duels = tuple(
-            CPOComparisonPoll(
+            outcomes_duel(
                 # Copy ballots to ensure no manipulation of originals
                 ballots=tuple(
                     PreferenceBallot(tuple(b), b.count) for b in self.ballots
@@ -113,12 +130,12 @@ class CPO_STV(STVPollBase):
         # return self.get_duels_winner(duels) or self.resolve_tie_ranked_pairs(duels)
 
     @staticmethod
-    def get_duels_winner(duels: tuple[CPOComparisonPoll, ...]) -> Candidates | None:
+    def get_duels_winner(duels: Duels) -> Candidates | None:
         wins = set[Candidates]()
         losses = set[Candidates]()
         for duel in duels:
             losses.add(duel.loser)
-            if duel.tied:
+            if not duel.difference:
                 losses.add(duel.winner)
             else:
                 wins.add(duel.winner)
@@ -128,11 +145,11 @@ class CPO_STV(STVPollBase):
             # If there is ONE clear winner (won all duels), return that combination.
             return undefeated.pop()
 
-    def resolve_tie_minimax(self, duels: tuple[CPOComparisonPoll, ...]) -> Candidates:
+    def resolve_tie_minimax(self, duels: Duels) -> Candidates:
         graph = defaultdict(list)
         for d in duels:
             graph[d.loser].append(d.winner)
-            if d.tied:
+            if not d.difference:
                 graph[d.winner].append(d.loser)
 
         # The smith set is a set of winners at the top-cycle, when there is no Condorcet winner.
