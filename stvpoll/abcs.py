@@ -57,9 +57,27 @@ class PreferenceBallot(list[Candidate]):
         self.multiplier = self.round(self.multiplier * multiplier)
 
     def get_next_preference(
-        self, sample: Candidates | set[Candidate]
+        self, standing: Candidates | set[Candidate]
     ) -> Candidate | None:
-        return next((p for p in self if p in sample), None)
+        """
+        Get next candidate from preferences, from a list of standing candidates.
+        >>> PreferenceBallot(('A', 'B', 'C'), 1).get_next_preference(('B', 'C'))
+        'B'
+        >>> PreferenceBallot(('A', 'B', 'C'), 1).get_next_preference(('D',))
+        """
+        return next((p for p in self if p in standing), None)
+
+    def is_current_candidate(
+        self, candidate: Candidate, standing: Candidates | set[Candidate]
+    ) -> bool:
+        """
+        Assuming list of standing candidates, is candidate current preference on ballot?
+        >>> PreferenceBallot(('A', 'B', 'C'), 1).is_current_candidate('A', ('B', 'C'))
+        False
+        >>> PreferenceBallot(('A', 'B', 'C'), 1).is_current_candidate('B', ('B', 'C'))
+        True
+        """
+        return self.get_next_preference(standing) == candidate
 
 
 class STVPollBase(ABC):

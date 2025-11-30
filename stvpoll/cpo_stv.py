@@ -25,7 +25,7 @@ class CPOComparisonPoll:
     def candidate_ballots(self, candidate: Candidate) -> Iterator[PreferenceBallot]:
         """Yields ballots where candidate is currently on top"""
         for b in self.ballots:
-            if b.get_next_preference(self.standing) == candidate:
+            if b.is_current_candidate(candidate, self.standing):
                 yield b
 
     def __post_init__(self) -> None:
@@ -44,7 +44,7 @@ class CPOComparisonPoll:
             if votes[candidate] > self.quota:
                 # Set candidates votes to quota and get fraction to transfer
                 votes[candidate], transfer_fraction = (
-                    self.quota,
+                    Decimal(self.quota),
                     (votes[candidate] - self.quota) / votes[candidate],
                 )
                 # Do the actual transfer, according to fraction
