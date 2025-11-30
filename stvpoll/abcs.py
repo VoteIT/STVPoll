@@ -87,12 +87,12 @@ class STVPollBase(ABC):
         self._quota_function = quota
         self.seats = seats
         self.pedantic_order = pedantic_order
-        self.result = ElectionResult(self)
         if len(self.candidates) < self.seats:
             raise STVException("Not enough candidates to fill seats")
         self.tiebreakers = [TiebreakHistory()]
         if random_in_tiebreaks:
             self.tiebreakers.append(TiebreakRandom(candidates))
+        self.result = ElectionResult(candidates=self.candidates, seats=self.seats)
 
     @cached_property
     def quota(self) -> int:
@@ -241,15 +241,12 @@ class STVPollBase(ABC):
         )
 
     def calculate(self) -> ElectionResult:
-        # if not self.ballots:  # pragma: no coverage
-        #     raise STVException('No ballots registered.')
         self.initial_votes()
         try:
             self.do_rounds()
         except IncompleteResult:
             pass
-        self.result.finish()
-        return self.result
+        return self.result.finalize(tiebreakers=self.tiebreakers, quota=self.quota)
 
     def do_rounds(self) -> None:
         while self.seats_to_fill:

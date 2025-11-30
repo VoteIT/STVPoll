@@ -31,6 +31,12 @@ class RoundDict(TypedDict):
     vote_count: dict[Candidate, float]
 
 
+class TransfersDict(TypedDict):
+    transfers: VoteTransfers
+    current_votes: Votes
+    exhausted_votes: Decimal
+
+
 class ResultDict(TypedDict):
     winners: Candidates
     candidates: Candidates

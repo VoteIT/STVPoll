@@ -14,10 +14,12 @@ from stvpoll.types import (
     Candidate,
     ResultDict,
     RoundDict,
+    TransfersDict,
 )
 
 if TYPE_CHECKING:  # pragma: no coverage
-    from .abcs import STVPollBase
+    from stvpoll.tiebreak_strategies import TiebreakStrategy
+    from typing_extensions import Self
 
 
 @dataclass
@@ -43,13 +45,16 @@ class ElectionResult(list[Candidate]):
     empty_ballot_count = 0
     # CPO STV requires manually setting randomized result
     _randomized = False
+    quota: int = None
 
-    def __init__(self, poll: STVPollBase) -> None:
+    def __init__(self, candidates: Candidates, seats: int) -> None:
         super().__init__()
-        self.poll = poll
+        self.candidates = candidates
         self.rounds = []
+        self.seats = seats
         self.start_time = time()
-        self.transfer_log = []
+        self.result_extra = {}
+        self.transfer_log = list[TransfersDict]()
 
     def __repr__(self) -> str:  # pragma: no coverage
         return f"<ElectionResult in {len(self.rounds)} round(s): {', '.join(map(str, self))}>"
@@ -63,8 +68,12 @@ class ElectionResult(list[Candidate]):
     def set_randomized(self):
         self._randomized = True
 
-    def finish(self) -> None:
+    def finalize(self, quota: int, tiebreakers: list[TiebreakStrategy]) -> Self:
         self.runtime = round(time() - self.start_time, 6)
+        self.quota = quota
+        for tiebreaker in tiebreakers:
+            self.result_extra.update(**tiebreaker.get_result_dict())
+        return self
 
     # @property
     def select(
@@ -92,7 +101,7 @@ class ElectionResult(list[Candidate]):
 
     @property
     def complete(self) -> bool:
-        return len(self) == self.poll.seats
+        return len(self) == self.seats
 
     def elected_as_tuple(self) -> tuple[Candidate, ...]:
         return tuple(self)
@@ -101,16 +110,14 @@ class ElectionResult(list[Candidate]):
         return set(self)
 
     def as_dict(self) -> ResultDict:
-        result = {
-            "winners": self.elected_as_tuple(),
-            "candidates": self.poll.candidates,
+        return {
+            "winners": tuple(self),
+            "candidates": self.candidates,
             "complete": self.complete,
             "rounds": tuple([r.as_dict() for r in self.rounds]),
             "randomized": self.randomized,
-            "quota": self.poll.quota,
+            "quota": self.quota,
             "runtime": self.runtime,
             "empty_ballot_count": self.empty_ballot_count,
+            **self.result_extra,
         }
-        for strategy in self.poll.tiebreakers:
-            result.update(strategy.get_result_dict())
-        return result
