@@ -1,6 +1,11 @@
+from collections.abc import Iterable
+
 from .abcs import STVPollBase
+from .base import calculate_stv
 from .exceptions import IncompleteResult
-from .types import SelectionMethod
+from .tiebreak_strategies import TiebreakStrategy, TiebreakHistory, TiebreakRandom
+from .transfer_strategies import TransferStrategy, transfer_serial
+from .types import Candidate, Candidates, SelectionMethod
 
 
 def irv_quota(ballot_count: int, winners: int) -> int:
@@ -36,3 +41,31 @@ class IRV(STVPollBase):
         candidate, method = self.get_candidate(most_votes=False)
         self.exclude(candidate, method)
         self.transfer_votes(candidate)
+
+
+def calculate_irv(
+    candidates: Candidates,
+    votes: Iterable[tuple[Iterable[Candidate], int]],
+    *,
+    allow_random: bool = True,
+    random_shuffle: bool = True,
+    tiebreak_strategies: tuple[TiebreakStrategy, ...] = None,
+    transfer_strategy: TransferStrategy = transfer_serial,
+):
+    if tiebreak_strategies is None:
+        tiebreak_strategies = (
+            (
+                TiebreakHistory(),
+                TiebreakRandom(candidates=candidates, shuffle=random_shuffle),
+            )
+            if allow_random
+            else (TiebreakHistory(),)
+        )
+    return calculate_stv(
+        candidates,
+        votes,
+        1,
+        tiebreak_strategies=tiebreak_strategies,
+        transfer_strategy=transfer_strategy,
+        quota_method=irv_quota,
+    )

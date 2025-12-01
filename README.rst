@@ -31,22 +31,24 @@ https://en.wikipedia.org/wiki/Single_transferable_vote
 
 .. code-block:: python
 
-    from stvpoll.scottish_stv import ScottishSTV
+    from stvpoll.scottish_stv import calculate_scottish_stv
 
-    example_ballots = (
-        (['orange'], 4),
-        (['pear', 'orange'], 2),
-        (['chocolate', 'strawberry'], 8),
-        (['chocolate', 'bonbon'], 4),
-        (['strawberry'], 1),
-        (['bonbon'], 1),
+    candidates = ('orange', 'chocolate', 'pear', 'strawberry', 'bonbon')
+    votes = (
+        (('orange'), 4),
+        (('pear', 'orange'), 2),
+        (('chocolate', 'strawberry'), 8),
+        (('chocolate', 'bonbon'), 4),
+        (('strawberry',)], 1),
+        (('bonbon',), 1),
     )
 
-    poll = ScottishSTV(seats=3, candidates=['orange', 'chocolate', 'pear', 'strawberry', 'bonbon'])
-    for (candidates, count) in example_ballots:
-        poll.add_ballot(candidates, count)
+    result = calculate_scottish_stv(
+        candidates=candidates,
+        votes=votes,
+        winners=3,
+    )
 
-    result = poll.calculate()
 
 This will return a ElectionResult object that contains the result and some useful metadata.
 

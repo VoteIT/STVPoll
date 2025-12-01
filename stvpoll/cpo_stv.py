@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterator
+from collections.abc import Iterator, Iterable
+from contextlib import suppress
 from decimal import Decimal
 from itertools import combinations
 from math import factorial
@@ -11,8 +12,10 @@ from tarjan import tarjan
 from typing_extensions import NamedTuple
 
 from .abcs import STVPollBase, PreferenceBallot
-from .exceptions import IncompleteResult
-from .quotas import droop_quota
+from .base import get_ballots, get_votes
+from .exceptions import IncompleteResult, STVException
+from .quotas import droop_quota, Quota
+from .result import ElectionResult
 from .types import SelectionMethod, Candidates, Candidate
 
 
@@ -85,6 +88,55 @@ def outcomes_duel(
     )
 
 
+def get_duels_winner(duels: Duels) -> Candidates | None:
+    wins = set[Candidates]()
+    losses = set[Candidates]()
+    for duel in duels:
+        losses.add(duel.loser)
+        if not duel.difference:
+            losses.add(duel.winner)
+        else:
+            wins.add(duel.winner)
+
+    undefeated = wins - losses
+    if len(undefeated) == 1:
+        # If there is ONE clear winner (won all duels), return that combination.
+        return undefeated.pop()
+
+
+def resolve_tie_minimax(
+    duels: Duels, allow_random: bool, result: ElectionResult
+) -> Candidates:
+    graph = defaultdict(list)
+    for d in duels:
+        graph[d.loser].append(d.winner)
+        if not d.difference:
+            graph[d.winner].append(d.loser)
+
+    # The smith set is a set of winners at the top-cycle, when there is no Condorcet winner.
+    smith_set: list[Candidates] = tarjan(graph)[0]
+
+    biggest_defeats = {
+        candidates: max(
+            (duel.difference for duel in duels if duel.loser == candidates),
+            default=Decimal(0),
+        )
+        for candidates in smith_set
+    }
+    minimal_defeat = min(biggest_defeats.values())
+    winners = [
+        candidates
+        for candidates, diff in biggest_defeats.items()
+        if diff == minimal_defeat
+    ]
+    if len(winners) == 1:  # pragma: no coverage
+        return winners[0]
+    if not allow_random:
+        raise IncompleteResult("Random in tiebreaks disallowed")
+    result.set_randomized()
+    return random.choice(winners)
+
+
 class CPO_STV(STVPollBase):
     def __init__(self, quota=droop_quota, *args, **kwargs):
         self.random_in_tiebreaks = kwargs.get("random_in_tiebreaks", True)
@@ -109,9 +161,7 @@ class CPO_STV(STVPollBase):
         )
 
     def get_best_approval(self) -> Candidates:
-        possible_outcomes = tuple(
-            combinations(self.standing_candidates, self.seats_to_fill)
-        )
+        possible_outcomes = combinations(self.standing_candidates, self.seats_to_fill)
         duels = tuple(
             outcomes_duel(
                 # Copy ballots to ensure no manipulation of originals
@@ -125,55 +175,11 @@ class CPO_STV(STVPollBase):
         )
 
         # Return either a clear winner (no ties), or resolved using MiniMax
-        return self.get_duels_winner(duels) or self.resolve_tie_minimax(duels)
+        return get_duels_winner(duels) or resolve_tie_minimax(
+            duels, self.random_in_tiebreaks, self.result
+        )
         # ... Ranked Pairs (so slow)
         # return self.get_duels_winner(duels) or self.resolve_tie_ranked_pairs(duels)
-
-    @staticmethod
-    def get_duels_winner(duels: Duels) -> Candidates | None:
-        wins = set[Candidates]()
-        losses = set[Candidates]()
-        for duel in duels:
-            losses.add(duel.loser)
-            if not duel.difference:
-                losses.add(duel.winner)
-            else:
-                wins.add(duel.winner)
-
-        undefeated = wins - losses
-        if len(undefeated) == 1:
-            # If there is ONE clear winner (won all duels), return that combination.
-            return undefeated.pop()
-
-    def resolve_tie_minimax(self, duels: Duels) -> Candidates:
-        graph = defaultdict(list)
-        for d in duels:
-            graph[d.loser].append(d.winner)
-            if not d.difference:
-                graph[d.winner].append(d.loser)
-
-        # The smith set is a set of winners at the top-cycle, when there is no Condorcet winner.
-        smith_set: list[Candidates] = tarjan(graph)[0]
-
-        biggest_defeats = {
-            candidates: max(
-                (duel.difference for duel in duels if duel.loser == candidates),
-                default=Decimal(0),
-            )
-            for candidates in smith_set
-        }
-        minimal_defeat = min(biggest_defeats.values())
-        winners = [
-            candidates
-            for candidates, diff in biggest_defeats.items()
-            if diff == minimal_defeat
-        ]
-        if len(winners) == 1:  # pragma: no cover
-            return winners[0]
-        if not self.random_in_tiebreaks:
-            raise IncompleteResult("Random in tiebreaks disallowed")
-        self.result.set_randomized()
-        return random.choice(winners)
 
     # def resolve_tie_ranked_pairs(self, duels):
     #     # type: (List[CPOComparisonResult]) -> List[Candidate]
@@ -220,3 +226,43 @@ class CPO_STV(STVPollBase):
     #                     group.remove(duel)
     #
     #     return self.get_duels_winner(noncircular_duels)
+
+
+def calculate_cpo_stv(
+    candidates: Candidates,
+    votes: Iterable[tuple[Iterable[Candidate], int]],
+    winners: int,
+    *,
+    allow_random: bool = True,
+    quota_method: Quota = droop_quota,
+) -> ElectionResult:
+    if winners > len(candidates):
+        raise STVException("Not enough candidates")
+    result = ElectionResult(candidates=candidates, seats=winners)
+    result.empty_ballot_count, ballots = get_ballots(votes, candidates)
+    votes = get_votes(ballots, candidates=candidates, standing=set(candidates))
+    quota = quota_method(sum((b.count for b in ballots), start=0), winners)
+    if len(candidates) == winners:
+        result.select(candidates, votes, SelectionMethod.CPO)
+    else:
+        possible_outcomes = combinations(candidates, winners)
+        duels = tuple(
+            outcomes_duel(
+                # Copy ballots to ensure no manipulation of originals
+                ballots=tuple(PreferenceBallot(tuple(b), b.count) for b in ballots),
+                compared=combination,
+                quota=quota,
+            )
+            for combination in combinations(possible_outcomes, 2)
+        )
+        # Return either a clear winner (no ties), or resolved using MiniMax
+        # return get_duels_winner(duels) or resolve_tie_minimax(duels)
+        with suppress(IncompleteResult):
+            result.select(
+                get_duels_winner(duels)
+                or resolve_tie_minimax(duels, allow_random, result),
+                votes,
+                SelectionMethod.CPO,
+            )
+
+    return result.finalize(quota=quota, tiebreakers=())

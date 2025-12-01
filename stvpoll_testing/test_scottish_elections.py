@@ -1,7 +1,6 @@
 import os
 
-from stvpoll.scottish_stv import ScottishSTV
-
+from stvpoll.scottish_stv import ScottishSTV, calculate_scottish_stv
 
 WARD_WINNERS = (
     {"Kevin  LANG", "Louise YOUNG", "Graham HUTCHISON", "Norrie WORK"},
@@ -24,10 +23,7 @@ WARD_WINNERS = (
 )
 
 
-def test_all():
-    """
-    Tests using data from real scottish elections.
-    """
+def iter_election_data():
     election_dir = "stvpoll_testing/scottish_election_data/"
     for f in os.listdir(election_dir):
         ballots = []
@@ -43,10 +39,30 @@ def test_all():
                 ballots.append((map(int, line), count))
             for i in range(standing):
                 candidates.append(edata.readline().strip()[1:-1])
+        yield (
+            int(f.split("_")[1]),
+            tuple(candidates),
+            (([candidates[i - 1] for i in b[0]], b[1]) for b in ballots),
+            winners,
+        )
 
+
+def test_all():
+    """
+    Tests using data from real scottish elections.
+    """
+    for ward_number, candidates, ballots, winners in iter_election_data():
         poll = ScottishSTV(winners, candidates)
         for b in ballots:
-            poll.add_ballot([candidates[i - 1] for i in b[0]], b[1])
+            poll.add_ballot(*b)
         result = poll.calculate()
-        ward_number = int(f.split("_")[1])
+        assert result.elected_as_set() == WARD_WINNERS[ward_number - 1]
+
+
+def test_all_func():
+    """
+    Tests using data from real scottish elections, using functional version.
+    """
+    for ward_number, candidates, ballots, winners in iter_election_data():
+        result = calculate_scottish_stv(candidates, ballots, winners)
         assert result.elected_as_set() == WARD_WINNERS[ward_number - 1]
