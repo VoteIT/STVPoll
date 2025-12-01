@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 from abc import ABC, abstractmethod
+from contextlib import suppress
 from decimal import Decimal
 from functools import cached_property
 
@@ -260,10 +261,8 @@ class STVPollBase(ABC):
 
     def calculate(self) -> ElectionResult:
         self.initial_votes()
-        try:
+        with suppress(IncompleteResult):
             self.do_rounds()
-        except IncompleteResult:
-            pass
         return self.result.finalize(tiebreakers=self.tiebreakers, quota=self.quota)
 
     def do_rounds(self) -> None:
