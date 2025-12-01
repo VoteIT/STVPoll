@@ -4,10 +4,12 @@ from decimal import Decimal
 from enum import Enum
 from typing import TypeVar, TypedDict
 
+from typing_extensions import Counter
+
 Candidate = TypeVar("Candidate", int, str)
 Candidates = tuple[Candidate, ...]
 Votes = dict[Candidate, Decimal]
-VoteTransfers = dict[tuple[Candidate, Candidate], Decimal]
+VoteTransfers = Counter[tuple[Candidate, Candidate]]
 Rounds = tuple[Votes, ...]
 
 

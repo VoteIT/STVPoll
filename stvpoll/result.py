@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from decimal import Decimal
 from dataclasses import dataclass
 from time import time
@@ -68,7 +69,7 @@ class ElectionResult(list[Candidate]):
     def set_randomized(self):
         self._randomized = True
 
-    def finalize(self, quota: int, tiebreakers: list[TiebreakStrategy]) -> Self:
+    def finalize(self, quota: int, tiebreakers: Iterable[TiebreakStrategy]) -> Self:
         self.runtime = round(time() - self.start_time, 6)
         self.quota = quota
         for tiebreaker in tiebreakers:

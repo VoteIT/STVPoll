@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Iterator, TYPE_CHECKING, Counter, Protocol
+from typing import Iterator, TYPE_CHECKING, Protocol, Iterable
 
 from stvpoll.types import Candidates, Candidate, Votes, VoteTransfers
 
@@ -14,8 +14,7 @@ class TransferStrategy(Protocol):
 
     def __call__(
         self,
-        *,
-        ballots: list[PreferenceBallot],
+        ballots: Iterable[PreferenceBallot],
         vote_count: Votes,
         transfers: Candidates,
         standing: Candidates,
@@ -26,7 +25,7 @@ class TransferStrategy(Protocol):
 
 
 def _iter_transferable_ballots(
-    ballots: list[PreferenceBallot],
+    ballots: Iterable[PreferenceBallot],
     transfers: Candidates,
     standing: Candidates,
 ) -> Iterator[tuple[PreferenceBallot, Candidate]]:
@@ -38,8 +37,7 @@ def _iter_transferable_ballots(
 
 # Currently not used in STVPoll
 def transfer_all(
-    *,
-    ballots: list[PreferenceBallot],
+    ballots: Iterable[PreferenceBallot],
     vote_count: Votes,
     transfers: Candidates,
     standing: Candidates,
@@ -50,7 +48,7 @@ def transfer_all(
     Transfer votes for list of candidates or a single candidate.
     If candidate was elected, set decrease_value to True.
     """
-    transfer_log = Counter[tuple[Candidate, Candidate]]()
+    transfer_log = VoteTransfers()
     exhausted = Decimal(0)
 
     # Go through each transferable ballot (where a candidate is current preference)
@@ -78,8 +76,7 @@ def transfer_all(
 
 
 def transfer_serial(
-    *,
-    ballots: list[PreferenceBallot],
+    ballots: Iterable[PreferenceBallot],
     vote_count: Votes,
     transfers: Candidates,
     standing: Candidates,
@@ -91,7 +88,7 @@ def transfer_serial(
     If candidate was elected, ballot value should probably be decreased.
     Will generate new current_votes dictionary.
     """
-    transfer_log = Counter[tuple[Candidate, Candidate]]()
+    transfer_log = VoteTransfers()
     exhausted = Decimal(0)
 
     # We need to know which candidates are still to be transferred
