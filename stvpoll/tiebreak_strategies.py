@@ -25,8 +25,10 @@ class TiebreakRandom:
     shuffled: Candidates
     reversed: Candidates
 
-    def __init__(self, candidates: Candidates):
-        self.shuffled = tuple(sample(candidates, len(candidates)))
+    def __init__(self, candidates: Candidates, *, shuffle: bool = True):
+        self.shuffled = (
+            tuple(sample(candidates, len(candidates))) if shuffle else candidates
+        )
         self.reversed = tuple(reversed(self.shuffled))
 
     def resolve(
@@ -46,6 +48,9 @@ class TiebreakRandom:
                 "random_order": self.shuffled,
             }
         return {}
+
+    def __repr__(self):  # pragma: no coverage
+        return f"{self.__class__.__name__}(order={self.shuffled!r})"
 
 
 class TiebreakHistory:
