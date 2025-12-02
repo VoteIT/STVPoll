@@ -38,10 +38,10 @@ def rounding_method(value: Decimal) -> Decimal:
     return round(value, 5).normalize()
 
 
-class PreferenceBallot[T: (int, str)](list[T]):
+class PreferenceBallot(list[Candidate]):
     def __init__(
         self,
-        preferences: Iterable[T],
+        preferences: Iterable[Candidate],
         count: int,
         rounding: Callable[[Decimal], Decimal] = rounding_method,
     ) -> None:
