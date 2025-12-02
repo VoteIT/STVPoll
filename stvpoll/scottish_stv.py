@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
 
 from stvpoll.abcs import STVPollBase
 from stvpoll.base import calculate_stv
@@ -12,7 +11,7 @@ from stvpoll.tiebreak_strategies import (
     TiebreakStrategy,
 )
 from stvpoll.transfer_strategies import transfer_serial, TransferStrategy
-from stvpoll.types import Candidate, Candidates, SelectionMethod
+from stvpoll.types import BallotData, Candidates, SelectionMethod
 
 
 class ScottishSTV(STVPollBase):
@@ -55,7 +54,7 @@ class ScottishSTV(STVPollBase):
 
 def calculate_scottish_stv(
     candidates: Candidates,
-    votes: Iterable[tuple[Iterable[Candidate], int]],
+    votes: BallotData,
     winners: int,
     *,
     allow_random: bool = True,
