@@ -53,7 +53,7 @@ def get_ballots(
         ballots = tuple(
             PreferenceBallot(vote, count) for vote, count in votes.items() if vote
         )
-        empty_ballots = votes[()]
+        empty_ballots = votes.get((), 0)
     else:
         empty, votes = partition(lambda v: v[0], votes)
         empty_ballots = sum((count for _, count in empty), start=0)
