@@ -43,7 +43,7 @@ class IRV(STVPollBase):
 
 def calculate_irv(
     candidates: Candidates,
-    votes: BallotData,
+    ballots: BallotData,
     *,
     allow_random: bool = True,
     random_shuffle: bool = True,
@@ -61,7 +61,7 @@ def calculate_irv(
         )
     return calculate_stv(
         candidates,
-        votes,
+        ballots,
         1,
         tiebreak_strategies=tiebreak_strategies,
         transfer_strategy=transfer_strategy,

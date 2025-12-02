@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 from stvpoll.abcs import STVPollBase
 from stvpoll.base import calculate_stv
 from stvpoll.quotas import droop_quota, Quota
@@ -54,7 +53,7 @@ class ScottishSTV(STVPollBase):
 
 def calculate_scottish_stv(
     candidates: Candidates,
-    votes: BallotData,
+    ballots: BallotData,
     winners: int,
     *,
     allow_random: bool = True,
@@ -66,7 +65,7 @@ def calculate_scottish_stv(
 ) -> ElectionResult:
     """
     :param candidates: All candidates - ballots may not have other candidates
-    :param votes: All ballots, with count for each ballot
+    :param ballots: All ballots, with count for each ballot
     :param winners: Number of winners
     :param allow_random: Use random tiebreaking mechanism (recommended)
     :param pedantic_order: Use tiebreaking mechanism for election order of candidates above quota
@@ -87,7 +86,7 @@ def calculate_scottish_stv(
         )
     return calculate_stv(
         candidates,
-        votes,
+        ballots,
         winners,
         transfer_strategy=transfer_strategy,
         pedantic_order=pedantic_order,

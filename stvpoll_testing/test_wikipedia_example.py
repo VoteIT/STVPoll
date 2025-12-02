@@ -63,7 +63,7 @@ def test_function_based_stv():
     result = calculate_scottish_stv(
         candidates=candidates,
         random_shuffle=False,
-        votes=(
+        ballots=(
             (("orange",), 4),
             (("pear", "orange"), 2),
             (("chocolate", "strawberry"), 8),
@@ -84,7 +84,7 @@ def test_function_based_irv():
     result = calculate_irv(
         candidates=candidates,
         random_shuffle=False,
-        votes=(
+        ballots=(
             (("orange",), 4),
             (("pear", "orange"), 2),
             (("chocolate", "strawberry"), 8),

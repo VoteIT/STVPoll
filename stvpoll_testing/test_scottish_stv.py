@@ -33,7 +33,7 @@ def test_big_dataset_function():
     result = calculate_scottish_stv(
         candidates=vote_data["candidates"][:70],
         pedantic_order=True,
-        votes=((v, 1) for v in vote_data["ballots"]),
+        ballots=((v, 1) for v in vote_data["ballots"]),
         winners=34,
     )
     assert result.complete
@@ -90,7 +90,7 @@ def test_tiebreak_history_function():
     )
     result = calculate_scottish_stv(
         candidates=example_candidates,
-        votes=example_ballots,
+        ballots=example_ballots,
         winners=1,
         quota_method=lambda x, y: 100,
     )

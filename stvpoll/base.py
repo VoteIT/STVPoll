@@ -66,7 +66,7 @@ def get_ballots(
 
 def calculate_stv(
     candidates: Candidates,
-    votes: BallotData,
+    ballots: BallotData,
     winners: int,
     *,
     pedantic_order: bool = False,
@@ -77,7 +77,7 @@ def calculate_stv(
     """
     Base STV calculation method
     :param candidates: All candidates - ballots may not have other candidates
-    :param votes: All ballots, with count for each ballot
+    :param ballots: All ballots, with count for each ballot
     :param winners: Number of winners
     :param pedantic_order: Use tiebreaking mechanism for election order of candidates above quota
     :param tiebreak_strategies: Tiebreaking strategies
@@ -88,7 +88,7 @@ def calculate_stv(
     if winners > len(candidates):
         raise STVException("Not enough candidates")
     result = ElectionResult(candidates=candidates, seats=winners)
-    result.empty_ballot_count, ballots = get_ballots(votes, candidates)
+    result.empty_ballot_count, ballots = get_ballots(ballots, candidates)
     standing = set(candidates)
     quota = quota_method(sum((b.count for b in ballots), start=0), winners)
 
@@ -133,6 +133,7 @@ def calculate_stv(
 
     with suppress(IncompleteResult):
         while not result.complete:
+            votes = get_votes(ballots, candidates=candidates, standing=standing)
             if len(standing) <= winners - len(result):
                 last_standing = tuple(
                     sorted(standing, key=lambda c: votes[c], reverse=True)
@@ -140,7 +141,6 @@ def calculate_stv(
                 result.select(last_standing, votes, SelectionMethod.NoCompetition)
                 break
 
-            votes = get_votes(ballots, candidates=candidates, standing=standing)
             if above_quota := tuple(
                 sorted(
                     (c for c, vote_count in votes.items() if vote_count >= quota),

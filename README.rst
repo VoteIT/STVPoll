@@ -35,7 +35,7 @@ https://en.wikipedia.org/wiki/Single_transferable_vote
 
     candidates = ('orange', 'chocolate', 'pear', 'strawberry', 'bonbon')
     # votes can be collections.Counter, dict or list of tuples with candidates and vote count
-    votes = {
+    ballots = {
         ('orange'): 4,
         ('pear', 'orange'): 2,
         ('chocolate', 'strawberry'): 8,
@@ -46,7 +46,7 @@ https://en.wikipedia.org/wiki/Single_transferable_vote
 
     result = calculate_scottish_stv(
         candidates=candidates,
-        votes=votes,
+        ballots=ballots,
         winners=3,
     )
 

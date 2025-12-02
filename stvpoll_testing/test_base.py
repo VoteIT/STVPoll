@@ -32,7 +32,7 @@ def test_bad_config():
             candidates=candidates,
             tiebreak_strategies=(),
             transfer_strategy=transfer_serial,
-            votes=(),
+            ballots=(),
             winners=4,  # Not enough candidates
             quota_method=droop_quota,
         )
@@ -48,7 +48,7 @@ def test_bad_vote():
             candidates=("a", "b", "c"),
             tiebreak_strategies=(),
             transfer_strategy=transfer_serial,
-            votes=[(["d"], 1)],  # Invalid vote
+            ballots=[(["d"], 1)],  # Invalid vote
             winners=2,
             quota_method=droop_quota,
         )
@@ -63,11 +63,30 @@ def test_no_tiebreak():
         candidates=("a", "b", "c"),
         tiebreak_strategies=(),
         transfer_strategy=transfer_serial,
-        votes=((("a",), 1), (("b",), 1), (("c",), 1)),
+        ballots=((("a",), 1), (("b",), 1), (("c",), 1)),
         winners=2,
         quota_method=droop_quota,
     )
     assert not result.complete
+
+
+def test_all_wins():
+    from stvpoll.base import calculate_stv
+    from stvpoll.transfer_strategies import transfer_serial
+    from stvpoll.quotas import droop_quota
+
+    ballots = [(("a", "b"), 2), (("b", "c"), 1)]
+    result = calculate_stv(
+        candidates=("a", "b", "c"),
+        ballots=ballots,
+        tiebreak_strategies=(),
+        transfer_strategy=transfer_serial,
+        winners=3,
+        quota_method=droop_quota,
+    )
+    assert result.complete
+    assert result.empty_ballot_count == 0
+    assert result == ["a", "b", "c"]
 
 
 def test_candidate_does_not_exist():
@@ -84,7 +103,7 @@ def test_counter_votes():
     votes = Counter([(), ("a", "b"), ("b", "c"), ("a", "b")])
     result = calculate_stv(
         candidates=("a", "b", "c"),
-        votes=votes,
+        ballots=votes,
         tiebreak_strategies=(),
         transfer_strategy=transfer_serial,
         winners=2,
