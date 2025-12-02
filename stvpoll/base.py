@@ -70,6 +70,7 @@ def calculate_stv(
     winners: int,
     *,
     pedantic_order: bool = False,
+    elect_last_standing: bool = True,
     tiebreak_strategies: tuple[TiebreakStrategy, ...] = (),
     transfer_strategy: TransferStrategy,
     quota_method: Quota,
@@ -80,6 +81,7 @@ def calculate_stv(
     :param ballots: All ballots, with count for each ballot
     :param winners: Number of winners
     :param pedantic_order: Use tiebreaking mechanism for election order of candidates above quota
+    :param elect_last_standing: Set False to require all candidates above quota
     :param tiebreak_strategies: Tiebreaking strategies
     :param transfer_strategy: Strategy to transfer votes
     :param quota_method: Method to calculate quota
@@ -107,13 +109,15 @@ def calculate_stv(
         result.transfer_log.append(log)
         return vote_count
 
-    def resolve_tiebreak(tied: Candidates, lowest: bool = False) -> Candidate:
+    def resolve_tiebreak(
+        tied: Candidates, lowest: bool = False
+    ) -> tuple[Candidate, SelectionMethod]:
         """Go though tiebreaking methods in order, narrowing down to a single winner"""
         history = tuple(r.votes for r in result.rounds)
         for tiebreaker in tiebreak_strategies:
             tied = tiebreaker.resolve(tied, history, lowest=lowest)
             if not isinstance(tied, tuple):
-                return tied
+                return tied, tiebreaker.method
         raise IncompleteResult("Could not break tie")
 
     def iter_pedantic_order(
@@ -126,15 +130,15 @@ def calculate_stv(
         for _, tied in groupby(tied, lambda c: current_votes[c]):
             tied = tuple(tied)
             while len(tied) > 1:
-                nxt = resolve_tiebreak(tied)
+                nxt, _ = resolve_tiebreak(tied)
                 yield nxt
                 tied = tuple(c for c in tied if c != nxt)
             yield from tied
 
     with suppress(IncompleteResult):
-        while not result.complete:
+        while standing and not result.complete:
             votes = get_votes(ballots, candidates=candidates, standing=standing)
-            if len(standing) <= winners - len(result):
+            if elect_last_standing and len(standing) <= winners - len(result):
                 last_standing = tuple(
                     sorted(standing, key=lambda c: votes[c], reverse=True)
                 )
@@ -162,12 +166,10 @@ def calculate_stv(
                     c for c, vote_count in votes.items() if vote_count == min_votes
                 )
                 if len(exclude) == 1:
-                    exclude = exclude[0]
+                    exclude, method = exclude[0], SelectionMethod.Direct
                 else:
-                    exclude = resolve_tiebreak(exclude, lowest=True)
-                result.select(
-                    exclude, votes, SelectionMethod.Direct, CandidateStatus.Excluded
-                )
+                    exclude, method = resolve_tiebreak(exclude, lowest=True)
+                result.select(exclude, votes, method, CandidateStatus.Excluded)
                 standing.remove(exclude)
                 votes = transfer_votes(transfers=(exclude,), vote_count=votes)
 
