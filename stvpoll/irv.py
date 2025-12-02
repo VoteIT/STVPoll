@@ -1,11 +1,9 @@
-from collections.abc import Iterable
-
 from .abcs import STVPollBase
 from .base import calculate_stv
 from .exceptions import IncompleteResult
 from .tiebreak_strategies import TiebreakStrategy, TiebreakHistory, TiebreakRandom
 from .transfer_strategies import TransferStrategy, transfer_serial
-from .types import Candidate, Candidates, SelectionMethod
+from .types import BallotData, Candidates, SelectionMethod
 
 
 def irv_quota(ballot_count: int, winners: int) -> int:
@@ -45,7 +43,7 @@ class IRV(STVPollBase):
 
 def calculate_irv(
     candidates: Candidates,
-    votes: Iterable[tuple[Iterable[Candidate], int]],
+    votes: BallotData,
     *,
     allow_random: bool = True,
     random_shuffle: bool = True,

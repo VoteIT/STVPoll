@@ -34,14 +34,15 @@ https://en.wikipedia.org/wiki/Single_transferable_vote
     from stvpoll.scottish_stv import calculate_scottish_stv
 
     candidates = ('orange', 'chocolate', 'pear', 'strawberry', 'bonbon')
-    votes = (
-        (('orange'), 4),
-        (('pear', 'orange'), 2),
-        (('chocolate', 'strawberry'), 8),
-        (('chocolate', 'bonbon'), 4),
-        (('strawberry',)], 1),
-        (('bonbon',), 1),
-    )
+    # votes can be collections.Counter, dict or list of tuples with candidates and vote count
+    votes = {
+        ('orange'): 4,
+        ('pear', 'orange'): 2,
+        ('chocolate', 'strawberry'): 8,
+        ('chocolate', 'bonbon'): 4,
+        ('strawberry',): 1,
+        ('bonbon',): 1,
+    }
 
     result = calculate_scottish_stv(
         candidates=candidates,

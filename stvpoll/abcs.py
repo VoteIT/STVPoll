@@ -38,10 +38,10 @@ def rounding_method(value: Decimal) -> Decimal:
     return round(value, 5).normalize()
 
 
-class PreferenceBallot(list[Candidate]):
+class PreferenceBallot[T: (int, str)](list[T]):
     def __init__(
         self,
-        preferences: Candidates,
+        preferences: Iterable[T],
         count: int,
         rounding: Callable[[Decimal], Decimal] = rounding_method,
     ) -> None:
@@ -79,6 +79,9 @@ class PreferenceBallot(list[Candidate]):
         True
         """
         return self.get_next_preference(standing) == candidate
+
+    def __repr__(self) -> str:
+        return f"PreferenceBallot([{','.join(map(str, self))}], {self.count})"
 
 
 class STVPollBase(ABC):

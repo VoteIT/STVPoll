@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterator, Iterable
+from collections.abc import Iterator
 from contextlib import suppress
 from decimal import Decimal
 from itertools import combinations
@@ -16,7 +16,7 @@ from .base import get_ballots, get_votes
 from .exceptions import IncompleteResult, STVException
 from .quotas import droop_quota, Quota
 from .result import ElectionResult
-from .types import SelectionMethod, Candidates, Candidate
+from .types import BallotData, Candidates, Candidate, SelectionMethod
 
 
 class Duel(NamedTuple):
@@ -230,7 +230,7 @@ class CPO_STV(STVPollBase):
 
 def calculate_cpo_stv(
     candidates: Candidates,
-    votes: Iterable[tuple[Iterable[Candidate], int]],
+    votes: BallotData,
     winners: int,
     *,
     allow_random: bool = True,

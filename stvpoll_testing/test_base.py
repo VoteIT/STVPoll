@@ -1,3 +1,5 @@
+from collections import Counter
+
 import pytest
 
 from stvpoll.abcs import STVPollBase
@@ -72,3 +74,22 @@ def test_candidate_does_not_exist():
     poll = DummySTV(seats=2, candidates=["one", "two", "three"])
     with pytest.raises(CandidateDoesNotExist):
         poll.add_ballot(["a", "b"])
+
+
+def test_counter_votes():
+    from stvpoll.base import calculate_stv
+    from stvpoll.transfer_strategies import transfer_serial
+    from stvpoll.quotas import droop_quota
+
+    votes = Counter([(), ("a", "b"), ("b", "c"), ("a", "b")])
+    result = calculate_stv(
+        candidates=("a", "b", "c"),
+        votes=votes,
+        tiebreak_strategies=(),
+        transfer_strategy=transfer_serial,
+        winners=2,
+        quota_method=droop_quota,
+    )
+    assert result.complete
+    assert result.empty_ballot_count == 1
+    assert result == ["a", "b"]

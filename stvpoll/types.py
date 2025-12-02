@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from decimal import Decimal
 from enum import Enum
 from typing import TypeVar, TypedDict
@@ -8,6 +9,7 @@ from typing_extensions import Counter
 
 Candidate = TypeVar("Candidate", int, str)
 Candidates = tuple[Candidate, ...]
+BallotData = dict[Candidates, int] | Iterable[tuple[Iterable[Candidate], int]]
 Votes = dict[Candidate, Decimal]
 VoteTransfers = Counter[tuple[Candidate, Candidate]]
 Rounds = tuple[Votes, ...]

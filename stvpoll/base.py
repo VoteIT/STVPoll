@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 from contextlib import suppress
 from decimal import Decimal
 from itertools import groupby
@@ -12,7 +11,14 @@ from stvpoll.quotas import Quota
 from stvpoll.result import ElectionResult
 from stvpoll.tiebreak_strategies import TiebreakStrategy
 from stvpoll.transfer_strategies import TransferStrategy
-from stvpoll.types import Candidate, Candidates, SelectionMethod, CandidateStatus, Votes
+from stvpoll.types import (
+    BallotData,
+    Candidate,
+    Candidates,
+    SelectionMethod,
+    CandidateStatus,
+    Votes,
+)
 
 
 def get_votes(
@@ -31,11 +37,27 @@ def get_votes(
 
 
 def get_ballots(
-    votes: Iterable[tuple[Iterable[Candidate], int]], candidates: Candidates
+    votes: BallotData, candidates: Candidates
 ) -> tuple[int, tuple[PreferenceBallot, ...]]:
-    empty, votes = partition(lambda v: v[0], votes)
-    empty_ballots = sum((count for _, count in empty), start=0)
-    ballots = tuple(PreferenceBallot(tuple(vote), count) for vote, count in votes)
+    """
+    Turn ballot data into PreferenceBallot tuple and also report empty ballots.
+    :param votes: Can be a dict, Counter och iterable containing tuple of candidates and count
+    :param candidates: Tuple of candidates, used to ensure no ballot contain missing candidates.
+    :return: Empty count and ballots.
+    >>> get_ballots({(): 3, (1,2): 2}, (1,2))
+    (3, (PreferenceBallot([1,2], 2),))
+    >>> get_ballots([([], 3), ([1,2], 2)], (1,2))
+    (3, (PreferenceBallot([1,2], 2),))
+    """
+    if isinstance(votes, dict):
+        ballots = tuple(
+            PreferenceBallot(vote, count) for vote, count in votes.items() if vote
+        )
+        empty_ballots = votes[()]
+    else:
+        empty, votes = partition(lambda v: v[0], votes)
+        empty_ballots = sum((count for _, count in empty), start=0)
+        ballots = tuple(PreferenceBallot(tuple(vote), count) for vote, count in votes)
     for ballot in ballots:
         if missing := next((c not in candidates for c in ballot), None):
             raise STVException(f"Candidate {missing} not in candidates: {ballot}")
@@ -44,7 +66,7 @@ def get_ballots(
 
 def calculate_stv(
     candidates: Candidates,
-    votes: Iterable[tuple[Iterable[Candidate], int]],
+    votes: BallotData,
     winners: int,
     *,
     pedantic_order: bool = False,
